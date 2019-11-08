@@ -39,7 +39,7 @@ func (repo *userRepository) Insert(ctx context.Context, user *models.User) error
 }
 
 func (repo *userRepository) FetchByName(ctx context.Context, userName string) (*models.User, error) {
-	query := `SELECT * from user where username = $1`
+	query := `SELECT * from user where username = ?`
 	userModel := &models.User{}
 	err := repo.DbConn.GetContext(ctx, userModel, query, userName)
 	if err != nil {
@@ -50,7 +50,7 @@ func (repo *userRepository) FetchByName(ctx context.Context, userName string) (*
 }
 
 func (repo *userRepository) FetchByID(ctx context.Context, ID uint) (*models.User, error) {
-	query := `SELECT * from user where id = $1`
+	query := `SELECT * from user where id = ?`
 	userModel := &models.User{}
 	err := repo.DbConn.GetContext(ctx, userModel, query, ID)
 	if err != nil {

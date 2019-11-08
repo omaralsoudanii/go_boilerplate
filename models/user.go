@@ -20,5 +20,5 @@ type User struct {
 	CreatedAt     sql.NullTime   `json:"created_at" db:"created_at"`
 	UpdatedAt     sql.NullTime   `json:"updated_at" db:"updated_at"`
 	// EmailConfirmed
-	Flags uint8 `json:"flags" db:"flags"`
+	Flags []uint8 `json:"flags" db:"flags"`
 }

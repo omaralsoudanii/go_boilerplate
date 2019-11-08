@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"encoding/json"
 	"go_boilerplate/lib"
 	"go_boilerplate/middleware"
 	"go_boilerplate/models"
@@ -72,15 +71,12 @@ func (user *NewHttpUserHandler) Register(w http.ResponseWriter, r *http.Request)
 
 func (user *NewHttpUserHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 	var userRow models.User
-	err := json.NewDecoder(r.Body).Decode(&userRow)
-	if err != nil {
-		lib.RespondJSON(w, http.StatusUnauthorized, nil, "Wrong username or password")
+
+	if err := lib.GetJSON(r, &userRow); err != nil {
+		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, err.Error())
 		return
 	}
-	//if ok, err := govalidator.ValidateStruct(&userRow); !ok {
-	//	lib.RespondJSON(w, http.StatusUnauthorized, err.Error())
-	//	return
-	//}
+
 	ctx := r.Context()
 	if ctx == nil {
 		ctx = context.Background()
