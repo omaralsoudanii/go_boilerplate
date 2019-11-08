@@ -27,19 +27,19 @@ func NewUserRepository(db *sqlx.DB, r *redis.Client) user.Repository {
 func (repo *userRepository) Insert(ctx context.Context, user *models.User) error {
 
 	tx := repo.DbConn.MustBegin()
-	tx.MustExecContext(ctx, "INSERT INTO tbl_user ( first_name, last_name , user_name , email , password , email_confirmed , created_at , updated_at) "+
-		"VALUES ($1, $2, $3, $4, $5, $6 ,$7 , $8)",
-		user.FirstName, user.LastName, user.UserName, user.Email, user.Password, false, time.Now(), time.Now())
+	tx.MustExecContext(ctx, "INSERT INTO user ( first_name, last_name , username , email , password , created_at) "+
+		"VALUES (?, ?, ?, ?, ?, ?)",
+		user.FirstName, user.LastName, user.UserName, user.Email, user.Password, time.Now())
 	saveErr := tx.Commit()
 	if saveErr != nil {
 		log.Error(saveErr)
-		return models.ErrInternalServerError
+		return _lib.ErrInternalServerError
 	}
 	return nil
 }
 
 func (repo *userRepository) FetchByName(ctx context.Context, userName string) (*models.User, error) {
-	query := `SELECT * from tbl_user where user_name = $1`
+	query := `SELECT * from user where username = $1`
 	userModel := &models.User{}
 	err := repo.DbConn.GetContext(ctx, userModel, query, userName)
 	if err != nil {
@@ -49,8 +49,8 @@ func (repo *userRepository) FetchByName(ctx context.Context, userName string) (*
 	return userModel, nil
 }
 
-func (repo *userRepository) FetchById(ctx context.Context, ID uint) (*models.User, error) {
-	query := `SELECT * from tbl_user where id = $1`
+func (repo *userRepository) FetchByID(ctx context.Context, ID uint) (*models.User, error) {
+	query := `SELECT * from user where id = $1`
 	userModel := &models.User{}
 	err := repo.DbConn.GetContext(ctx, userModel, query, ID)
 	if err != nil {
@@ -63,7 +63,7 @@ func (repo *userRepository) FetchById(ctx context.Context, ID uint) (*models.Use
 func (repo *userRepository) StoreSession(ctx context.Context, user *models.User, token string) error {
 	userMap := map[string]interface{}{
 		"id":           user.ID,
-		"user_name":    user.UserName,
+		"username":     user.UserName,
 		"email":        user.Email,
 		"avatar":       user.Avatar.String,
 		"birth_date":   user.BirthDate.Time,

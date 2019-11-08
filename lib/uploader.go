@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"go_boilerplate/item"
-	"go_boilerplate/models"
 	"go_boilerplate/user"
 	"io"
 	"os"
@@ -32,7 +31,7 @@ func UploadFile(c context.Context, file item.File, location string) (string, err
 	mimeType := file.Header.Header.Get("Content-Type")
 	ok = checkAllowedMimeTypes(mimeType)
 	if !ok {
-		return "", models.ErrBadParamInput
+		return "", ErrBadParamInput
 	}
 	fileNames := strings.Split(file.Header.Filename, ".")
 	uuid := uuid.NewV4()

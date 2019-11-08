@@ -2,8 +2,9 @@ package lib
 
 import (
 	"encoding/json"
-	"go_boilerplate/models"
+	"errors"
 	"net/http"
+	"strconv"
 )
 
 type HttpMessage struct {
@@ -24,7 +25,7 @@ func RespondJSON(w http.ResponseWriter, status int, payload interface{}, error s
 	w.Write([]byte(response))
 }
 
-// gets status code based on model err
+// gets status code based on error returned
 func GetStatusCode(err error) int {
 
 	if err == nil {
@@ -32,11 +33,11 @@ func GetStatusCode(err error) int {
 	}
 	log.Error(err)
 	switch err {
-	case models.ErrInternalServerError:
+	case ErrInternalServerError:
 		return http.StatusInternalServerError
-	case models.ErrNotFound:
+	case ErrNotFound:
 		return http.StatusNotFound
-	case models.ErrConflict:
+	case ErrConflict:
 		return http.StatusConflict
 	default:
 		return http.StatusInternalServerError
@@ -49,4 +50,21 @@ func UseString(s *string) string {
 	}
 	value := *s // safe to dereference the *string
 	return value
+}
+
+// TODO: remove interface shit and use composition
+func GetJSON(r *http.Request, value interface{}) error {
+	defer r.Body.Close()
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&value); err != nil {
+		msg := err.Error()
+		if serr, ok := err.(*json.SyntaxError); ok {
+			log.Error(serr.Error())
+			msg += ", at offset: " + strconv.FormatInt(serr.Offset, 10)
+		}
+
+		return errors.New("Couldn't process JSON payload, Error: " + msg)
+	}
+
+	return nil
 }

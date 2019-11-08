@@ -82,7 +82,7 @@ func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
 		log.Error(err.Error())
-		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, models.ErrBadParamInput.Error())
+		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, _lib.ErrBadParamInput.Error())
 		return
 	}
 	itemRow.Title = r.FormValue("title")
@@ -103,7 +103,7 @@ func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		log.Error(err.Error())
-		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, models.ErrBadParamInput.Error())
+		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, _lib.ErrBadParamInput.Error())
 		return
 	}
 	if ok, err := govalidator.ValidateStruct(&itemRow); !ok {

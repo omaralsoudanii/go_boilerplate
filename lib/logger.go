@@ -40,15 +40,15 @@ func GetLogger() *logrus.Logger {
 
 	// logrus.AddHook(rotateFileHook)
 
-	var logLevel = logrus.DebugLevel
-	logrus.SetLevel(logLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp:          true,
-		DisableLevelTruncation: true,
-		QuoteEmptyFields:       true,
-		TimestampFormat:        "02-01-2006 15:04:05",
-	})
 	once.Do(func() {
+		var logLevel = logrus.DebugLevel
+		logrus.SetLevel(logLevel)
+		logrus.SetFormatter(&logrus.TextFormatter{
+			FullTimestamp:          true,
+			DisableLevelTruncation: true,
+			QuoteEmptyFields:       true,
+			TimestampFormat:        "02-01-2006 15:04:05",
+		})
 		log = logrus.StandardLogger()
 	})
 	return log

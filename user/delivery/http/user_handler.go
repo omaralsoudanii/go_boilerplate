@@ -45,8 +45,7 @@ func UserHttpRouter(router *chi.Mux, UseCase user.UseCase) {
 
 func (user *NewHttpUserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var userRow models.User
-	err := json.NewDecoder(r.Body).Decode(&userRow)
-	if err != nil {
+	if err := lib.GetJSON(r, &userRow); err != nil {
 		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, err.Error())
 		return
 	}
@@ -55,17 +54,19 @@ func (user *NewHttpUserHandler) Register(w http.ResponseWriter, r *http.Request)
 		lib.RespondJSON(w, http.StatusBadRequest, nil, err.Error())
 		return
 	}
+
 	ctx := r.Context()
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	err = user.UserUseCase.Register(ctx, &userRow)
+	err := user.UserUseCase.Register(ctx, &userRow)
 
 	if err != nil {
 		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err.Error())
 		return
 	}
+
 	lib.RespondJSON(w, http.StatusCreated, userRow, "")
 }
 

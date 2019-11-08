@@ -68,7 +68,7 @@ func (repo *itemRepository) Fetch(ctx context.Context, num int64) ([]*models.Ite
 	res, err := repo.fetch(ctx, query, num)
 	if err != nil {
 		log.Error(err)
-		return nil, models.ErrInternalServerError
+		return nil, _lib.ErrInternalServerError
 	}
 	return res, err
 }
@@ -79,7 +79,7 @@ func (repo *itemRepository) GetByID(ctx context.Context, id int64) (*models.Item
 	err := repo.Conn.GetContext(ctx, itemModel, query, id)
 	if err != nil {
 		log.Error(err)
-		return nil, models.ErrNotFound
+		return nil, _lib.ErrNotFound
 	}
 
 	return itemModel, nil
@@ -92,7 +92,7 @@ func (repo *itemRepository) GetByTitle(ctx context.Context, title string) (*mode
 	err := repo.Conn.GetContext(ctx, itemModel, query, title)
 	if err != nil {
 		log.Error(err)
-		return nil, models.ErrNotFound
+		return nil, _lib.ErrNotFound
 	}
 
 	return itemModel, nil
@@ -109,7 +109,7 @@ func (repo *itemRepository) Store(ctx context.Context, i *models.Item, fileNames
 	if err != nil {
 		tx.Rollback()
 		log.Fatal(err)
-		return 0, models.ErrBadParamInput
+		return 0, _lib.ErrBadParamInput
 	}
 	result := tx.QueryRowxContext(ctx, query, i.Title, i.Description, i.Price, i.UserID, i.CategoryID, time.Now(), time.Now())
 	var id uint
@@ -117,20 +117,20 @@ func (repo *itemRepository) Store(ctx context.Context, i *models.Item, fileNames
 	if err != nil {
 		tx.Rollback()
 		log.Error(err)
-		return 0, models.ErrBadParamInput
+		return 0, _lib.ErrBadParamInput
 	}
 	for _, fileName := range fileNames {
 		_, err = tx.ExecContext(ctx, fileQuery, id, fileName, time.Now(), time.Now())
 		if err != nil {
 			tx.Rollback()
 			log.Error(err)
-			return 0, models.ErrBadParamInput
+			return 0, _lib.ErrBadParamInput
 		}
 	}
 	if err != nil {
 		tx.Rollback()
 		log.Error(err)
-		return 0, models.ErrBadParamInput
+		return 0, _lib.ErrBadParamInput
 	}
 	err = tx.Commit()
 	return id, nil
@@ -152,11 +152,11 @@ func (repo *itemRepository) Delete(ctx context.Context, id int64) error {
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		log.Error(err)
-		return models.ErrNotFound
+		return _lib.ErrNotFound
 	}
 	if rowsAffected != 1 {
 		err = fmt.Errorf("Weird  Behaviour. Total Affected: %d", rowsAffected)
-		return models.ErrNotFound
+		return _lib.ErrNotFound
 	}
 
 	return nil
@@ -176,7 +176,7 @@ func (repo *itemRepository) Update(ctx context.Context, i *models.Item) error {
 	}
 	affect, err := res.RowsAffected()
 	if err != nil {
-		return models.ErrNotFound
+		return _lib.ErrNotFound
 	}
 	if affect != 1 {
 		err = fmt.Errorf("Weird  Behaviour. Total Affected: %d", affect)

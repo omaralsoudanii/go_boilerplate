@@ -38,7 +38,7 @@ func (u *userUseCase) Register(c context.Context, user *models.User) error {
 	user.Password = string(hashedPassword)
 	if err != nil {
 		log.Error(err)
-		return models.ErrBadParamInput
+		return _lib.ErrBadParamInput
 	}
 	hashErr := u.userRepo.Insert(ctx, user)
 	if hashErr != nil {
@@ -107,7 +107,7 @@ func (u *userUseCase) Refresh(c context.Context, refreshToken string) (string, e
 	expireToken := time.Now().Add(time.Minute * 20).Unix()
 	tk := &user.Token{
 		ID:       userData["id"],
-		UserName: userData["user_name"],
+		UserName: userData["username"],
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expireToken,
 			Issuer:    "go_boilerplate",

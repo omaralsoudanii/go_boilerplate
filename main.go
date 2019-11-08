@@ -84,9 +84,9 @@ func main() {
 	workDir, _ := os.Getwd()
 	filesDir := filepath.Join(workDir, "assets")
 	FileServer(r, "/public", http.Dir(filesDir), log)
-	log.Info("App started")
+	log.Info("App started at port 4000")
 	// start server
-	http.ListenAndServe(":8000", r)
+	http.ListenAndServe(":4000", r)
 }
 
 // FileServer conveniently sets up a http.FileServer handler to serve
