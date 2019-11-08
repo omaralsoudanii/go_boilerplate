@@ -37,10 +37,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed connecting to the database: %v", err)
 	}
-	err = db.Ping()
-	if err != nil {
-		log.Fatalf("Database ping failed: %v", err)
-	}
 	defer db.Close()
 
 	// redis
