@@ -1,0 +1,7 @@
+{
+  "Host": "127.0.0.1",
+  "Username": "root",
+  "Password": "root",
+  "Database": "go_boiler",
+  "Port": "3306"
+}
