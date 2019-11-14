@@ -12,12 +12,16 @@ type HttpMessage struct {
 	Error string      `json:"error"`
 }
 
-// respondJSON makes the response with payload as json format
-func RespondJSON(w http.ResponseWriter, status int, payload interface{}, error string) {
+// RespondJSON makes the response with payload as json format
+func RespondJSON(w http.ResponseWriter, status int, payload interface{}, errMsg error) {
+	error := ""
+	if errMsg != nil {
+		error = errMsg.Error()
+	}
 	response, err := json.Marshal(HttpMessage{Data: payload, Error: error})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		w.Write([]byte(ErrInternalServerError.Error()))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

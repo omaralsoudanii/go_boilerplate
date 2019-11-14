@@ -10,8 +10,8 @@ import (
 type Repository interface {
 	//Authenticate(ctx context.Context, user *models.User) error
 	Insert(ctx context.Context, user *models.User) error
-	FetchByName(ctx context.Context, username string) (*models.User, error)
-	FetchByID(ctx context.Context, ID uint) (*models.User, error)
+	GetByName(ctx context.Context, username string) (*models.User, error)
+	GetByID(ctx context.Context, id uint) (*models.User, error)
 	StoreSession(ctx context.Context, user *models.User, token string) error
 	GetUser(key string) (map[string]string, error)
 	DeleteSession(key string) error

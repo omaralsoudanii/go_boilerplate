@@ -16,11 +16,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/squirrel"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/cors"
 	"github.com/go-redis/redis"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -38,7 +40,7 @@ func main() {
 		log.Fatalf("Failed connecting to the database: %v", err)
 	}
 	defer db.Close()
-
+	sb := squirrel.StatementBuilder.RunWith(db)
 	// redis
 	redisConn := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
@@ -69,10 +71,10 @@ func main() {
 	r.Use(cors.Handler)
 
 	// inject domains
-	userRepo := _userRepo.NewUserRepository(db, redisConn)
+	userRepo := _userRepo.NewUserRepository(sb,db, redisConn)
 	userUse := _userUseCase.NewUserUseCase(userRepo, timeoutContext)
 	_userHttpDelivery.UserHttpRouter(r, userUse)
-	itemRepo := _itemRepo.NewItemRepository(db)
+	itemRepo := _itemRepo.NewItemRepository(sb, db)
 	ju := _itemUseCase.NewItemUseCase(itemRepo, userRepo, timeoutContext)
 	_itemHttpDelivery.ItemHttpRouter(r, ju)
 

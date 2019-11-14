@@ -12,6 +12,8 @@ import (
 	"github.com/go-chi/chi"
 )
 
+var log = lib.GetLogger()
+
 type NewHttpUserHandler struct {
 	UserUseCase user.UseCase
 }
@@ -45,12 +47,14 @@ func UserHttpRouter(router *chi.Mux, UseCase user.UseCase) {
 func (user *NewHttpUserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var userRow models.User
 	if err := lib.GetJSON(r, &userRow); err != nil {
-		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, err.Error())
+		log.Error(err)
+		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, err)
 		return
 	}
 
 	if ok, err := govalidator.ValidateStruct(&userRow); !ok {
-		lib.RespondJSON(w, http.StatusBadRequest, nil, err.Error())
+		log.Error(err)
+		lib.RespondJSON(w, http.StatusBadRequest, nil, err)
 		return
 	}
 
@@ -62,18 +66,20 @@ func (user *NewHttpUserHandler) Register(w http.ResponseWriter, r *http.Request)
 	err := user.UserUseCase.Register(ctx, &userRow)
 
 	if err != nil {
-		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err.Error())
+		log.Error(err)
+		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
 		return
 	}
 
-	lib.RespondJSON(w, http.StatusCreated, userRow, "")
+	lib.RespondJSON(w, http.StatusCreated, userRow, nil)
 }
 
 func (user *NewHttpUserHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 	var userRow models.User
 
 	if err := lib.GetJSON(r, &userRow); err != nil {
-		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, err.Error())
+		log.Error(err)
+		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, err)
 		return
 	}
 
@@ -83,17 +89,18 @@ func (user *NewHttpUserHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 	accessToken, refreshToken, err := user.UserUseCase.SignIn(ctx, &userRow)
 	if err != nil {
-		lib.RespondJSON(w, http.StatusUnauthorized, nil, "Wrong username or password")
+		log.Error(err)
+		lib.RespondJSON(w, http.StatusUnauthorized, nil, lib.ErrNotFound)
 		return
 	}
-	lib.RespondJSON(w, http.StatusOK, tokenPayload{AccessToken: accessToken, RefreshToken: refreshToken}, "")
+	lib.RespondJSON(w, http.StatusOK, tokenPayload{AccessToken: accessToken, RefreshToken: refreshToken}, nil)
 }
 
 func (user *NewHttpUserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	refreshToken := r.Header.Get("refresh_token")
 	grantType := r.Header.Get("grant_type")
 	if grantType != "refresh_token" {
-		lib.RespondJSON(w, http.StatusBadRequest, nil, "unsupported_grant_type")
+		lib.RespondJSON(w, http.StatusBadRequest, nil, lib.ErrBadGrantType)
 		return
 	}
 	ctx := r.Context()
@@ -102,10 +109,11 @@ func (user *NewHttpUserHandler) Refresh(w http.ResponseWriter, r *http.Request) 
 	}
 	accessToken, err := user.UserUseCase.Refresh(ctx, refreshToken)
 	if err != nil {
-		lib.RespondJSON(w, http.StatusUnauthorized, nil, "invalid_refresh_token")
+		log.Error(err)
+		lib.RespondJSON(w, http.StatusUnauthorized, nil, lib.ErrInvalidRefreshTkn)
 		return
 	}
-	lib.RespondJSON(w, http.StatusOK, accessTokenPayload{AccessToken: accessToken}, "")
+	lib.RespondJSON(w, http.StatusOK, accessTokenPayload{AccessToken: accessToken}, nil)
 }
 
 func (user *NewHttpUserHandler) SignOut(w http.ResponseWriter, r *http.Request) {
@@ -115,8 +123,9 @@ func (user *NewHttpUserHandler) SignOut(w http.ResponseWriter, r *http.Request) 
 	}
 	err := user.UserUseCase.SignOut(ctx)
 	if err != nil {
-		lib.RespondJSON(w, http.StatusUnauthorized, nil, err.Error())
+		log.Error(err)
+		lib.RespondJSON(w, http.StatusUnauthorized, nil, err)
 		return
 	}
-	lib.RespondJSON(w, http.StatusOK, nil, "")
+	lib.RespondJSON(w, http.StatusOK, nil, nil)
 }

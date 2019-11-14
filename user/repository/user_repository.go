@@ -6,55 +6,65 @@ import (
 	"go_boilerplate/user"
 	"time"
 
-	_lib "go_boilerplate/lib"
+	"github.com/Masterminds/squirrel"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/go-redis/redis"
-	"github.com/jmoiron/sqlx"
 )
 
-var log = _lib.GetLogger()
-
 type userRepository struct {
-	DbConn    *sqlx.DB
+	sb        squirrel.StatementBuilderType
+	db        *sqlx.DB
 	RedisConn *redis.Client
 }
 
-func NewUserRepository(db *sqlx.DB, r *redis.Client) user.Repository {
+func NewUserRepository(sb squirrel.StatementBuilderType, db *sqlx.DB, r *redis.Client) user.Repository {
 
-	return &userRepository{db, r}
+	return &userRepository{sb, db, r}
 }
 
 func (repo *userRepository) Insert(ctx context.Context, user *models.User) error {
 
-	tx := repo.DbConn.MustBegin()
-	tx.MustExecContext(ctx, "INSERT INTO user ( first_name, last_name , username , email , password , created_at) "+
-		"VALUES (?, ?, ?, ?, ?, ?)",
-		user.FirstName, user.LastName, user.UserName, user.Email, user.Password, time.Now())
-	saveErr := tx.Commit()
-	if saveErr != nil {
-		log.Error(saveErr)
-		return _lib.ErrInternalServerError
+	q := repo.sb.Insert("user").
+		Columns("first_name", "last_name", "username", "email", "password", "created_at").
+		Values(user.FirstName, user.LastName, user.UserName, user.Email, user.Password, time.Now())
+	_, err := q.ExecContext(ctx)
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
-func (repo *userRepository) FetchByName(ctx context.Context, userName string) (*models.User, error) {
-	query := `SELECT * from user where username = ?`
-	userModel := &models.User{}
-	err := repo.DbConn.GetContext(ctx, userModel, query, userName)
+func (repo *userRepository) GetByName(ctx context.Context, username string) (*models.User, error) {
+	q, args, err := repo.sb.Select("*").
+		From("user").
+		Where("username = ?", username).
+		ToSql()
+
 	if err != nil {
-		log.Error(err)
+		return nil, err
+	}
+	userModel := &models.User{}
+	err = repo.db.GetContext(ctx, userModel, q, args...)
+	if err != nil {
 		return nil, err
 	}
 	return userModel, nil
 }
 
-func (repo *userRepository) FetchByID(ctx context.Context, ID uint) (*models.User, error) {
-	query := `SELECT * from user where id = ?`
-	userModel := &models.User{}
-	err := repo.DbConn.GetContext(ctx, userModel, query, ID)
+func (repo *userRepository) GetByID(ctx context.Context, id uint) (*models.User, error) {
+	q, args, err := repo.sb.Select("*").
+		From("user").
+		Where(squirrel.Eq{"id": id}).
+		ToSql()
+
 	if err != nil {
-		log.Error(err)
+		return nil, err
+	}
+
+	userModel := &models.User{}
+	err = repo.db.GetContext(ctx, userModel, q, args)
+	if err != nil {
 		return nil, err
 	}
 	return userModel, nil
@@ -77,7 +87,6 @@ func (repo *userRepository) StoreSession(ctx context.Context, user *models.User,
 	// create/set user in redis
 	err := repo.RedisConn.HMSet(redisKey, userMap).Err()
 	if err != nil {
-		log.Error(err)
 		return err
 	}
 
@@ -85,17 +94,14 @@ func (repo *userRepository) StoreSession(ctx context.Context, user *models.User,
 }
 func (repo *userRepository) DeleteSession(key string) error {
 	err := repo.RedisConn.Del(key).Err()
-	if err != nil {
-		log.Error(err)
-	}
 	return err
 }
-func (repo *userRepository) GetUser(userName string) (map[string]string, error) {
-	key := "user:" + userName
+
+func (repo *userRepository) GetUser(username string) (map[string]string, error) {
+	key := "user:" + username
 	data := make(map[string]string)
 	data, err := repo.RedisConn.HGetAll(key).Result()
 	if err != nil {
-		log.Error(err)
 		return nil, err
 	}
 	return data, nil

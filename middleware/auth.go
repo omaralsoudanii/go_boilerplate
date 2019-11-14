@@ -15,13 +15,13 @@ func AccessTokenVerifier(next http.Handler) http.Handler {
 		tokenHeader := r.Header.Get("Authorization")
 
 		if tokenHeader == "" {
-			lib.RespondJSON(w, http.StatusForbidden, "You are unauthorized to use this ", "")
+			lib.RespondJSON(w, http.StatusForbidden, nil, lib.ErrInvalidTkn)
 			return
 		}
 
 		parts := strings.Split(tokenHeader, " ")
 		if len(parts) != 2 {
-			lib.RespondJSON(w, http.StatusForbidden, "You are unauthorized to use this ", "")
+			lib.RespondJSON(w, http.StatusForbidden, nil, lib.ErrInvalidTkn)
 			return
 		}
 
@@ -36,12 +36,12 @@ func AccessTokenVerifier(next http.Handler) http.Handler {
 		})
 
 		if err != nil {
-			lib.RespondJSON(w, http.StatusForbidden, "Malformed authentication token", "")
+			lib.RespondJSON(w, http.StatusForbidden, nil, lib.ErrInvalidTkn)
 			return
 		}
 
 		if !token.Valid {
-			lib.RespondJSON(w, http.StatusForbidden, "Malformed authentication token", "")
+			lib.RespondJSON(w, http.StatusForbidden, nil, lib.ErrInvalidTkn)
 			return
 		}
 		userContext := user.ContextData{
@@ -58,7 +58,7 @@ func RefreshTokenVerifier(next http.Handler) http.Handler {
 		tokenHeader := r.Header.Get("refresh_token")
 
 		if tokenHeader == "" {
-			lib.RespondJSON(w, http.StatusForbidden, "invalid_refresh_token", "")
+			lib.RespondJSON(w, http.StatusForbidden, nil, lib.ErrInvalidRefreshTkn)
 			return
 		}
 
@@ -72,12 +72,12 @@ func RefreshTokenVerifier(next http.Handler) http.Handler {
 		})
 
 		if err != nil {
-			lib.RespondJSON(w, http.StatusForbidden, "Malformed authentication token", "")
+			lib.RespondJSON(w, http.StatusForbidden, nil, lib.ErrInvalidRefreshTkn)
 			return
 		}
 
 		if !token.Valid {
-			lib.RespondJSON(w, http.StatusForbidden, "Malformed authentication token", "")
+			lib.RespondJSON(w, http.StatusForbidden, nil, lib.ErrInvalidRefreshTkn)
 			return
 		}
 		userContext := user.ContextData{

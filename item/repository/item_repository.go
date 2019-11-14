@@ -2,184 +2,163 @@ package repository
 
 import (
 	"context"
-	"fmt"
 	"go_boilerplate/item"
 	"go_boilerplate/models"
 	"time"
 
-	_lib "go_boilerplate/lib"
-
+	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 )
 
-var log = _lib.GetLogger()
-
 type itemRepository struct {
-	Conn *sqlx.DB
+	sb squirrel.StatementBuilderType
+	db *sqlx.DB
 }
 
-func NewItemRepository(Conn *sqlx.DB) item.Repository {
+func NewItemRepository(sb squirrel.StatementBuilderType, db *sqlx.DB) item.Repository {
 
-	return &itemRepository{Conn}
+	return &itemRepository{sb, db}
 }
 
-func (repo itemRepository) fetch(ctx context.Context, query string, args ...interface{}) (data []*models.Item, err error) {
-	rows, err := repo.Conn.QueryxContext(ctx, query, args...)
-	if err != nil {
-		log.Error(err)
-		return nil, err
-	}
-	defer rows.Close()
-	result := make([]*models.Item, 0)
+func (repo itemRepository) scanResult(ctx context.Context, rows *sqlx.Rows) (data []*models.Item, err error) {
+
+	result := []*models.Item{}
+
 	for rows.Next() {
-		itemModel := new(models.Item)
-		err := rows.Scan(
-			&itemModel.ID,
-			&itemModel.Title,
-			&itemModel.Description,
-			&itemModel.Price,
-			&itemModel.Category,
-			&itemModel.Hash,
-			&itemModel.CreatedAt.Time,
-			&itemModel.UpdatedAt.Time,
-		)
+		var itemModel models.Item
+		err := rows.StructScan(&itemModel)
 		if err != nil {
-			log.Error(err)
 			return nil, err
 		}
-		result = append(result, itemModel)
+		result = append(result, &itemModel)
 	}
 	return result, nil
 }
-func (repo *itemRepository) Fetch(ctx context.Context, num int64) ([]*models.Item, error) {
-	fmt.Println(num)
-	query := `SELECT tbl_item.id,tbl_item.title,tbl_item.description,tbl_item.price,tbl_category.title as category , tbl_item_images.hash ,
-	tbl_item.created_at,tbl_item.updated_at
-			FROM tbl_item 
-			join 
-			tbl_category 
-			on 
-			tbl_item.category_id = tbl_category.id
-			join 
-			tbl_item_images 
-			on
-			tbl_item.id = tbl_item_images.item_id
-			ORDER BY title LIMIT 12 OFFSET $1 `
-	res, err := repo.fetch(ctx, query, num)
+func (repo *itemRepository) GetAll(ctx context.Context, num uint) ([]*models.Item, error) {
+	q, args, err := repo.sb.
+		Select("item.id",
+			"item.title",
+			"item.description",
+			"item.price",
+			"category.title as category").
+		From("item").
+		Join("category", squirrel.Eq{"item.category_id": "category.id"}).
+		Join("item_images", squirrel.Eq{"item.id": "item_images.item_id"}).
+		OrderBy("item.title").
+		Limit(10).
+		Offset(uint64(num)).
+		ToSql()
+	rows, err := repo.db.QueryxContext(ctx, q, args)
 	if err != nil {
-		log.Error(err)
-		return nil, _lib.ErrInternalServerError
+		return nil, err
 	}
-	return res, err
+	defer rows.Close()
+	res, err := repo.scanResult(ctx, rows)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
-func (repo *itemRepository) GetByID(ctx context.Context, id int64) (*models.Item, error) {
-	query := `SELECT id,title,description,price,created_at,updated_at
-  						FROM tbl_item WHERE id = $1`
+func (repo *itemRepository) GetByID(ctx context.Context, id uint) (*models.Item, error) {
+	q := repo.sb.Select("id, title, description, price, created_at, updated_at").
+		From("item").Where(squirrel.Eq{"id": id})
 	itemModel := &models.Item{}
-	err := repo.Conn.GetContext(ctx, itemModel, query, id)
+	err := q.ScanContext(ctx, itemModel)
 	if err != nil {
-		log.Error(err)
-		return nil, _lib.ErrNotFound
+		return nil, err
 	}
-
 	return itemModel, nil
 }
 
 func (repo *itemRepository) GetByTitle(ctx context.Context, title string) (*models.Item, error) {
-	query := `SELECT id,title,description,price,created_at,updated_at
-  						FROM tbl_item WHERE title = $1`
+	q := repo.sb.Select("id, title, description, price, created_at, updated_at").
+		From("item").Where(squirrel.Eq{"title": title})
 	itemModel := &models.Item{}
-	err := repo.Conn.GetContext(ctx, itemModel, query, title)
+	err := q.ScanContext(ctx, itemModel)
 	if err != nil {
-		log.Error(err)
-		return nil, _lib.ErrNotFound
+		return nil, err
 	}
-
 	return itemModel, nil
 }
 
 func (repo *itemRepository) Store(ctx context.Context, i *models.Item, fileNames []string) (uint, error) {
 
-	query := "INSERT INTO tbl_item ( title, description , price , user_id , category_id, created_at , updated_at) " +
-		"VALUES ($1, $2 , $3 , $4 , $5 ,$6 , $7) RETURNING id"
-	fileQuery := "INSERT INTO tbl_item_images ( item_id, hash , created_at , updated_at) " +
-		"VALUES ($1, $2 , $3 , $4)"
+	q, args, err := repo.sb.Insert("item").
+		Columns("title", "description", "price", "user_id", "category_id", "created_at").
+		Values(i.Title, i.Description, i.Price, i.UserID, i.CategoryID, time.Now()).
+		ToSql()
 
-	tx, err := repo.Conn.Beginx()
+	tx, err := repo.db.BeginTxx(ctx, nil)
 	if err != nil {
 		tx.Rollback()
-		log.Fatal(err)
-		return 0, _lib.ErrBadParamInput
+		return 0, err
 	}
-	result := tx.QueryRowxContext(ctx, query, i.Title, i.Description, i.Price, i.UserID, i.CategoryID, time.Now(), time.Now())
-	var id uint
-	err = result.Scan(&id)
+
+	res, err := tx.ExecContext(ctx, q, args)
 	if err != nil {
 		tx.Rollback()
-		log.Error(err)
-		return 0, _lib.ErrBadParamInput
+		return 0, err
 	}
-	for _, fileName := range fileNames {
-		_, err = tx.ExecContext(ctx, fileQuery, id, fileName, time.Now(), time.Now())
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		tx.Rollback()
+		return 0, err
+	}
+
+	iq := repo.sb.Insert("item_images").
+		Columns("item_id", "hash", "created_at")
+
+	var iqs string
+	var iargs []interface{}
+	for fileName := range fileNames {
+		iqs, iargs, err = iq.Values(id, fileName, time.Now()).ToSql()
+		_, err = tx.ExecContext(ctx, iqs, iargs)
 		if err != nil {
 			tx.Rollback()
-			log.Error(err)
-			return 0, _lib.ErrBadParamInput
+			return 0, err
 		}
 	}
+	err = tx.Commit()
 	if err != nil {
 		tx.Rollback()
-		log.Error(err)
-		return 0, _lib.ErrBadParamInput
+		return 0, err
 	}
-	err = tx.Commit()
-	return id, nil
+	return uint(id), nil
 }
 
-func (repo *itemRepository) Delete(ctx context.Context, id int64) error {
-	query := "DELETE FROM tbl_item WHERE id = $1"
-
-	stmt, err := repo.Conn.PrepareContext(ctx, query)
+func (repo *itemRepository) Delete(ctx context.Context, id uint) error {
+	q := repo.sb.Delete("").
+		From("item").
+		Where("id = ?", id)
+	res, err := q.ExecContext(ctx)
 	if err != nil {
-		log.Error(err)
 		return err
 	}
-	res, err := stmt.ExecContext(ctx, id)
-	if err != nil {
-		log.Error(err)
+	c, err := res.RowsAffected()
+	if err != nil || c == 0 {
 		return err
 	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		log.Error(err)
-		return _lib.ErrNotFound
-	}
-	if rowsAffected != 1 {
-		err = fmt.Errorf("Weird  Behaviour. Total Affected: %d", rowsAffected)
-		return _lib.ErrNotFound
-	}
-
 	return nil
 }
+
 func (repo *itemRepository) Update(ctx context.Context, i *models.Item) error {
-	query := `UPDATE tbl_item set title=?, description=? , price=? , updated_at
-		WHERE ID = $1`
-
-	stmt, err := repo.Conn.PrepareContext(ctx, query)
-	if err != nil {
-		return nil
+	data := map[string]interface{}{
+		"title":       i.Title,
+		"description": i.Description,
+		"price":       i.Price,
 	}
+	q := repo.sb.Update("item").
+		SetMap(data).
+		Where("id = ?", i.ID)
+	res, err := q.ExecContext(ctx)
 
-	res, err := stmt.ExecContext(ctx, i.Title, i.Description, i.Price, time.Now(), i.ID)
 	if err != nil {
 		return err
 	}
-	affect, err := res.RowsAffected()
-	if err != nil {
-		return _lib.ErrNotFound
-	}
-	if affect != 1 {
-		err = fmt.Errorf("Weird  Behaviour. Total Affected: %d", affect)
+
+	c, err := res.RowsAffected()
+	if err != nil || c == 0 {
 
 		return err
 	}

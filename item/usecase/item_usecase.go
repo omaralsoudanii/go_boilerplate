@@ -9,11 +9,7 @@ import (
 	"go_boilerplate/user"
 	"strconv"
 	"time"
-
-	_lib "go_boilerplate/lib"
 )
-
-var log = _lib.GetLogger()
 
 type itemUseCase struct {
 	itemRepo       item.Repository
@@ -30,11 +26,11 @@ func NewItemUseCase(i item.Repository, u user.Repository, timeout time.Duration)
 	}
 }
 
-func (i *itemUseCase) Fetch(c context.Context, num int64) ([]*models.Item, error) {
+func (i *itemUseCase) GetAll(c context.Context, num uint) ([]*models.Item, error) {
 
 	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
 	defer cancel()
-	listItems, err := i.itemRepo.Fetch(ctx, num)
+	listItems, err := i.itemRepo.GetAll(ctx, num)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +38,7 @@ func (i *itemUseCase) Fetch(c context.Context, num int64) ([]*models.Item, error
 	return listItems, nil
 }
 
-func (i *itemUseCase) GetByID(c context.Context, id int64) (*models.Item, error) {
+func (i *itemUseCase) GetByID(c context.Context, id uint) (*models.Item, error) {
 
 	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
 	defer cancel()
@@ -62,11 +58,11 @@ func (i *itemUseCase) Update(c context.Context, item *models.Item) error {
 	return i.itemRepo.Update(ctx, item)
 }
 
-func (i *itemUseCase) GetByTitle(c context.Context, name string) (*models.Item, error) {
+func (i *itemUseCase) GetByTitle(c context.Context, GetByTitle string) (*models.Item, error) {
 
 	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
 	defer cancel()
-	res, err := i.itemRepo.GetByTitle(ctx, name)
+	res, err := i.itemRepo.GetByTitle(ctx, GetByTitle)
 	if err != nil {
 		return nil, err
 	}
@@ -79,23 +75,27 @@ func (i *itemUseCase) Store(c context.Context, item *models.Item, images []item.
 	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
 	defer cancel()
 	userContext, ok := c.Value("user").(*user.ContextData)
+	if !ok {
+		return 0, errors.New("context_retrieve_user_err")
+	}
 	user, err := i.userRepo.GetUser(userContext.UserName)
 	if err != nil {
 		return 0, err
 	}
+
 	UserID, err := strconv.Atoi(user["id"])
-	item.UserID = UserID
-	if !ok {
-		return 0, errors.New("context_retrieve_user_err")
+	if err != nil {
+		return 0, err
 	}
+	item.UserID = UserID
+
 	var fileNames []string
 	for _, image := range images {
 		fileName, err := lib.UploadFile(ctx, image, "items")
-		fileNames = append(fileNames, fileName)
 		if err != nil {
-			log.Error(err)
 			return 0, err
 		}
+		fileNames = append(fileNames, fileName)
 	}
 	id, err := i.itemRepo.Store(ctx, item, fileNames)
 	if err != nil {
@@ -104,7 +104,7 @@ func (i *itemUseCase) Store(c context.Context, item *models.Item, images []item.
 	return id, nil
 }
 
-func (i *itemUseCase) Delete(c context.Context, id int64) error {
+func (i *itemUseCase) Delete(c context.Context, id uint) error {
 	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
 	defer cancel()
 	//jobExist, err := j.jobRepo.GetByID(ctx, id)

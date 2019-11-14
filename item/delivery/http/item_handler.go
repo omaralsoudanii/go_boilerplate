@@ -2,20 +2,17 @@ package http
 
 import (
 	"context"
+	"github.com/asaskevich/govalidator"
+	"github.com/go-chi/chi"
 	"go_boilerplate/item"
-	"go_boilerplate/lib"
+	lib "go_boilerplate/lib"
 	"go_boilerplate/middleware"
 	"go_boilerplate/models"
 	"net/http"
 	"strconv"
-
-	_lib "go_boilerplate/lib"
-
-	"github.com/asaskevich/govalidator"
-	"github.com/go-chi/chi"
 )
 
-var log = _lib.GetLogger()
+var log = lib.GetLogger()
 
 type NewHttpItemHandler struct {
 	ItemUseCase item.UseCase
@@ -32,30 +29,31 @@ func ItemHttpRouter(router *chi.Mux, UseCase item.UseCase) {
 		r.Delete("/{id}", handler.Delete)
 		r.Post("/", handler.Store)
 	})
-	r.Get("/", handler.FetchItem)
+	r.Get("/", handler.GetAllItem)
 
 	router.Mount("/items", r)
 }
 
-func (i *NewHttpItemHandler) FetchItem(w http.ResponseWriter, r *http.Request) {
+func (i *NewHttpItemHandler) GetAllItem(w http.ResponseWriter, r *http.Request) {
 	offset := chi.URLParam(r, "offset")
 	num, _ := strconv.Atoi(offset)
 	ctx := r.Context()
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	listItems, err := i.ItemUseCase.Fetch(ctx, int64(num))
+	listItems, err := i.ItemUseCase.GetAll(ctx, uint(num))
 	if err != nil {
-		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err.Error())
+		log.Error(err)
+		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
 		return
 	}
-	lib.RespondJSON(w, http.StatusOK, listItems, "")
+	lib.RespondJSON(w, http.StatusOK, listItems, nil)
 }
 
 func (i *NewHttpItemHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	idP, err := strconv.Atoi(chi.URLParam(r, "id"))
-	id := int64(idP)
+	id := uint(idP)
 
 	ctx := r.Context()
 	if ctx == nil {
@@ -65,10 +63,11 @@ func (i *NewHttpItemHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	itemRow, err := i.ItemUseCase.GetByID(ctx, id)
 
 	if err != nil {
-		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err.Error())
+		log.Error(err)
+		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
 		return
 	}
-	lib.RespondJSON(w, http.StatusOK, itemRow, "")
+	lib.RespondJSON(w, http.StatusOK, itemRow, nil)
 }
 
 func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
@@ -81,8 +80,8 @@ func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
-		log.Error(err.Error())
-		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, _lib.ErrBadParamInput.Error())
+		log.Error(err)
+		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, lib.ErrBadParamInput)
 		return
 	}
 	itemRow.Title = r.FormValue("title")
@@ -95,35 +94,37 @@ func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
 	files := r.MultipartForm.File["images"]
 	images := []item.File{}
 	for _, fh := range files {
-		f, _ := fh.Open()
+		f, err := fh.Open()
+		if err != nil {
+			log.Error(err)
+			lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, lib.ErrBadParamInput)
+			return
+		}
 		images = append(images, item.File{
 			Physical: f,
 			Header:   fh,
 		})
 	}
-	if err != nil {
-		log.Error(err.Error())
-		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, _lib.ErrBadParamInput.Error())
-		return
-	}
 	if ok, err := govalidator.ValidateStruct(&itemRow); !ok {
-		lib.RespondJSON(w, http.StatusBadRequest, nil, err.Error())
+		log.Warning(err)
+		lib.RespondJSON(w, http.StatusBadRequest, nil, err)
 		return
 	}
 
 	id, err := i.ItemUseCase.Store(ctx, &itemRow, images)
 
 	if err != nil {
-		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err.Error())
+		log.Error(err)
+		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
 		return
 	}
 	itemRow.ID = id
-	lib.RespondJSON(w, http.StatusCreated, itemRow, "")
+	lib.RespondJSON(w, http.StatusCreated, itemRow, nil)
 }
 
 func (i *NewHttpItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idP, err := strconv.Atoi(chi.URLParam(r, "id"))
-	id := int64(idP)
+	id := uint(idP)
 	ctx := r.Context()
 	if ctx == nil {
 		ctx = context.Background()
@@ -132,8 +133,8 @@ func (i *NewHttpItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = i.ItemUseCase.Delete(ctx, id)
 
 	if err != nil {
-		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err.Error())
+		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
 		return
 	}
-	lib.RespondJSON(w, http.StatusNoContent, nil, "")
+	lib.RespondJSON(w, http.StatusNoContent, nil, nil)
 }

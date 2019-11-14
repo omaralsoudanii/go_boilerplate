@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	_lib "go_boilerplate/lib"
 	"go_boilerplate/models"
 	"go_boilerplate/user"
 	"time"
@@ -12,8 +11,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/crypto/bcrypt"
 )
-
-var log = _lib.GetLogger()
 
 type userUseCase struct {
 	userRepo       user.Repository
@@ -37,8 +34,7 @@ func (u *userUseCase) Register(c context.Context, user *models.User) error {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	user.Password = string(hashedPassword)
 	if err != nil {
-		log.Error(err)
-		return _lib.ErrBadParamInput
+		return err
 	}
 	hashErr := u.userRepo.Insert(ctx, user)
 	if hashErr != nil {
@@ -52,13 +48,12 @@ func (u *userUseCase) SignIn(c context.Context, user *models.User) (string, stri
 	defer cancel()
 
 	// get password from user repo to validate against sent one
-	userModel, err := u.userRepo.FetchByName(ctx, user.UserName)
+	userModel, err := u.userRepo.GetByName(ctx, user.UserName)
 	if err != nil {
 		return "", "", err
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(userModel.Password), []byte(user.Password))
 	if err != nil {
-		log.Error(err)
 		return "", "", err
 	}
 
@@ -76,13 +71,11 @@ func (u *userUseCase) SignIn(c context.Context, user *models.User) (string, stri
 func (u *userUseCase) SignOut(c context.Context) error {
 	userContext, ok := c.Value("user").(*user.ContextData)
 	if !ok {
-		log.Error(errors.New("context_retrieve_user_err"))
 		return errors.New("context_retrieve_user_err")
 	}
 	redisKey := "user:" + userContext.UserName
 	err := u.userRepo.DeleteSession(redisKey)
 	if err != nil {
-		log.Error(err)
 		return err
 	}
 	return err
@@ -91,7 +84,6 @@ func (u *userUseCase) SignOut(c context.Context) error {
 func (u *userUseCase) Refresh(c context.Context, refreshToken string) (string, error) {
 	userContext, ok := c.Value("user").(*user.ContextData)
 	if !ok {
-		log.Error(errors.New("context_retrieve_user_err"))
 		return "", errors.New("context_retrieve_user_err")
 	}
 
@@ -100,7 +92,6 @@ func (u *userUseCase) Refresh(c context.Context, refreshToken string) (string, e
 		return "", err
 	}
 	if userData["refreshToken"] != refreshToken {
-		log.Error(errors.New("invalid_refresh_token"))
 		return "", errors.New("invalid_refresh_token")
 	}
 	// access_token token creation
