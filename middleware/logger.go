@@ -1,90 +1,116 @@
 package middleware
 
 import (
+	"bytes"
 	lib "go_boilerplate/lib"
 	"net"
 	"net/http"
-	"net/url"
+	"net/http/httputil"
 	"strings"
 )
 
 var log = lib.GetLogger()
 
+//ipRange - a structure that holds the start and end of a range of ip addresses
+type ipRange struct {
+	start net.IP
+	end   net.IP
+}
+
+// private sub-nets to filter
+var privateRanges = []ipRange{
+	ipRange{
+		start: net.ParseIP("10.0.0.0"),
+		end:   net.ParseIP("10.255.255.255"),
+	},
+	ipRange{
+		start: net.ParseIP("100.64.0.0"),
+		end:   net.ParseIP("100.127.255.255"),
+	},
+	ipRange{
+		start: net.ParseIP("172.16.0.0"),
+		end:   net.ParseIP("172.31.255.255"),
+	},
+	ipRange{
+		start: net.ParseIP("192.0.0.0"),
+		end:   net.ParseIP("192.0.0.255"),
+	},
+	ipRange{
+		start: net.ParseIP("192.168.0.0"),
+		end:   net.ParseIP("192.168.255.255"),
+	},
+	ipRange{
+		start: net.ParseIP("198.18.0.0"),
+		end:   net.ParseIP("198.19.255.255"),
+	},
+}
+
 func RequestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := getRealAddr(r)
-		url := parseURL(r.URL)
-		headers := getHeaders(r)
+		dump, err := httputil.DumpRequest(r, true)
+		if err != nil {
+			log.Errorln(err)
+		} else {
+			ip := getIPAdress(r)
+			log.Infof("[Request] - %v\n"+
+				"IP-Address: %v", string(dump), ip)
+		}
 
-		log.Debugf("[Request]: %v \n"+
-			"[Method]: %v \n"+
-			"[IP]: %v \n"+
-			"[Agent]: %v \n"+
-			"[Proto]: %v \n"+
-			"%v", url, r.Method, ip, r.UserAgent(), r.Proto, headers)
 		next.ServeHTTP(w, r)
 	})
 }
 
-func parseURL(u *url.URL) string {
-	url := u.Scheme + "://"
-	if u.Opaque != "" {
-		url += u.Opaque
+func getIPAdress(r *http.Request) string {
+	ip := ""
+
+	for _, h := range []string{"X-Forwarded-For", "X-Real-Ip"} {
+		addresses := strings.Split(r.Header.Get(h), ",")
+		// march from right to left until we get a public address
+		// that will be the address right before our proxy.
+		for i := len(addresses) - 1; i >= 0; i-- {
+			ip = strings.TrimSpace(addresses[i])
+			// header can contain spaces too, strip those out.
+			realIP := net.ParseIP(ip)
+			if !realIP.IsGlobalUnicast() || isPrivateSubnet(realIP) {
+				// bad address, go to next
+				continue
+			}
+			return ip
+		}
 	}
-	if u.Host != "" {
-		if host, port, err := net.SplitHostPort(u.Host); err == nil {
-			url += host + ":" + port
+
+	// the default is the originating ip. from local without load balancer
+	if ip == "" {
+		if parts := strings.Split(r.RemoteAddr, ":"); len(parts) == 2 {
+			ip = parts[0]
 		} else {
-			url += host
+			ip = r.RemoteAddr
 		}
 	}
-	if u.Path != "" {
-		url += u.Path
-	}
-	if u.Fragment != "" {
-		url += u.Fragment
-	}
-	if u.RawQuery != "" {
-		url += u.RawQuery
-	}
-	return url
+
+	return ip
 }
 
-func getRealAddr(r *http.Request) string {
-
-	remoteIP := ""
-	// the default is the originating ip. but we try to find better options because this is almost
-	// never the right IP
-	if parts := strings.Split(r.RemoteAddr, ":"); len(parts) == 2 {
-		remoteIP = parts[0]
+// inRange - check to see if a given ip address is within a range given
+func inRange(r ipRange, ipAddress net.IP) bool {
+	// strcmp type byte comparison
+	if bytes.Compare(ipAddress, r.start) >= 0 && bytes.Compare(ipAddress, r.end) < 0 {
+		return true
 	}
-	// If we have a forwarded-for header, take the address from there
-	if xff := strings.Trim(r.Header.Get("X-Forwarded-For"), ","); len(xff) > 0 {
-		addrs := strings.Split(xff, ",")
-		lastFwd := addrs[len(addrs)-1]
-		if ip := net.ParseIP(lastFwd); ip != nil {
-			remoteIP = ip.String()
-		}
-	} else if xri := r.Header.Get("X-Real-Ip"); len(xri) > 0 { // parse X-Real-Ip header
-
-		if ip := net.ParseIP(xri); ip != nil {
-			remoteIP = ip.String()
-		}
-	} else { // if doesn't match any case just pass RemoteAddr as it is
-		remoteIP = r.RemoteAddr
-	}
-
-	return remoteIP
-
+	return false
 }
 
-func getHeaders(r *http.Request) string {
-	hd := ""
-	for name, headers := range r.Header {
-		name = strings.ToLower(name)
-		for _, h := range headers {
-			hd += "[" + name + "]: " + h + " \n"
+// isPrivateSubnet - check to see if this ip is in a private subnet
+func isPrivateSubnet(ipAddress net.IP) bool {
+	// my use case is only concerned with ipv4 atm
+	if ipCheck := ipAddress.To4(); ipCheck != nil {
+		// iterate over all our ranges
+		for _, r := range privateRanges {
+			// check if this ip is in a private range
+			if inRange(r, ipAddress) {
+				return true
+			}
 		}
 	}
-	return hd
+	return false
 }

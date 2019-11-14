@@ -27,7 +27,7 @@ func (i *NewHttpItemHandler) GetAllItem(w http.ResponseWriter, r *http.Request) 
 	}
 	listItems, err := i.ItemUseCase.GetAll(ctx, uint(num))
 	if err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
 		return
 	}
@@ -47,7 +47,7 @@ func (i *NewHttpItemHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	itemRow, err := i.ItemUseCase.GetByID(ctx, id)
 
 	if err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
 		return
 	}
@@ -64,7 +64,7 @@ func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, lib.ErrBadParamInput)
 		return
 	}
@@ -80,7 +80,7 @@ func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
 	for _, fh := range files {
 		f, err := fh.Open()
 		if err != nil {
-			log.Error(err)
+			log.Errorln(err)
 			lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, lib.ErrBadParamInput)
 			return
 		}
@@ -98,7 +98,7 @@ func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
 	id, err := i.ItemUseCase.Store(ctx, &itemRow, images)
 
 	if err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
 		return
 	}

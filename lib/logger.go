@@ -45,6 +45,8 @@ func GetLogger() *logrus.Logger {
 		logrus.SetLevel(logLevel)
 		logrus.SetFormatter(&logrus.TextFormatter{
 			FullTimestamp:          true,
+			ForceColors:            true,
+			DisableColors:          false,
 			DisableLevelTruncation: true,
 			QuoteEmptyFields:       true,
 			TimestampFormat:        "02-01-2006 15:04:05",

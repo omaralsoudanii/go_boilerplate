@@ -35,7 +35,7 @@ func GetStatusCode(err error) int {
 	if err == nil {
 		return http.StatusOK
 	}
-	log.Error(err)
+	log.Errorln(err)
 	switch err {
 	case ErrInternalServerError:
 		return http.StatusInternalServerError

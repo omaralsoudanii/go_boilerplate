@@ -20,6 +20,9 @@ func main() {
 	// log
 	log := _lib.GetLogger()
 
+	// set envs
+	_lib.GetENV()
+
 	// db startup
 	db, sb := database.GetInstance(log)
 	defer db.Close()
@@ -36,7 +39,7 @@ func main() {
 	FileServer(r, "/public", http.Dir(filesDir), log)
 
 	// start server
-	log.Info("App started at port 4000")
+	log.Infoln("App started at port 4000")
 	http.ListenAndServe(":4000", r)
 }
 

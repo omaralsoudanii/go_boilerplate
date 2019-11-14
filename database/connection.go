@@ -2,7 +2,8 @@ package database
 
 import (
 	"fmt"
-	"go_boilerplate/config"
+	"go_boilerplate/lib"
+	"os"
 
 	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
@@ -10,13 +11,11 @@ import (
 )
 
 func GetInstance(log *logrus.Logger) (*sqlx.DB, squirrel.StatementBuilderType) {
-	v, err := config.ReadConfig("db")
-	if err != nil {
-		log.Fatalf("Error when reading config: %v", err)
-	}
-
+	lib.GetENV()
 	db, err := sqlx.Connect("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=%s",
-		v.Get("Username"), v.Get("Password"), v.Get("Host"), v.Get("Port"), v.Get("Database"), v.Get("ParseTime")))
+		os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"), os.Getenv("DB_NAME"), os.Getenv("DB_PARSE_TIME")))
+
 	if err != nil {
 		log.Fatalf("Failed connecting to the database: %v", err)
 	}

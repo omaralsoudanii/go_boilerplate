@@ -44,13 +44,13 @@ func UploadFile(c context.Context, file item.File, location string) (string, err
 	file.Header.Filename = hex.EncodeToString(sum[:]) + generateFileName(mimeType)
 	f, err := os.OpenFile("./assets/"+location+"/"+file.Header.Filename, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		return "", err
 	}
 	defer f.Close()
 	_, err = io.Copy(f, file.Physical)
 	if err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		return "", err
 	}
 	fmt.Println("storing")

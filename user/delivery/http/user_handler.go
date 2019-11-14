@@ -27,13 +27,13 @@ type accessTokenPayload struct {
 func (user *NewHttpUserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var userRow models.User
 	if err := lib.GetJSON(r, &userRow); err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, err)
 		return
 	}
 
 	if ok, err := govalidator.ValidateStruct(&userRow); !ok {
-		log.Error(err)
+		log.Errorln(err)
 		lib.RespondJSON(w, http.StatusBadRequest, nil, err)
 		return
 	}
@@ -46,7 +46,7 @@ func (user *NewHttpUserHandler) Register(w http.ResponseWriter, r *http.Request)
 	err := user.UserUseCase.Register(ctx, &userRow)
 
 	if err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
 		return
 	}
@@ -58,7 +58,7 @@ func (user *NewHttpUserHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 	var userRow models.User
 
 	if err := lib.GetJSON(r, &userRow); err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, err)
 		return
 	}
@@ -69,7 +69,7 @@ func (user *NewHttpUserHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 	accessToken, refreshToken, err := user.UserUseCase.SignIn(ctx, &userRow)
 	if err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		lib.RespondJSON(w, http.StatusUnauthorized, nil, lib.ErrNotFound)
 		return
 	}
@@ -89,7 +89,7 @@ func (user *NewHttpUserHandler) Refresh(w http.ResponseWriter, r *http.Request) 
 	}
 	accessToken, err := user.UserUseCase.Refresh(ctx, refreshToken)
 	if err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		lib.RespondJSON(w, http.StatusUnauthorized, nil, lib.ErrInvalidRefreshTkn)
 		return
 	}
@@ -103,7 +103,7 @@ func (user *NewHttpUserHandler) SignOut(w http.ResponseWriter, r *http.Request) 
 	}
 	err := user.UserUseCase.SignOut(ctx)
 	if err != nil {
-		log.Error(err)
+		log.Errorln(err)
 		lib.RespondJSON(w, http.StatusUnauthorized, nil, err)
 		return
 	}
