@@ -3,13 +3,11 @@ package http
 import (
 	"context"
 	"go_boilerplate/lib"
-	"go_boilerplate/middleware"
 	"go_boilerplate/models"
 	"go_boilerplate/user"
 	"net/http"
 
 	"github.com/asaskevich/govalidator"
-	"github.com/go-chi/chi"
 )
 
 var log = lib.GetLogger()
@@ -24,24 +22,6 @@ type tokenPayload struct {
 
 type accessTokenPayload struct {
 	AccessToken string `json:"access_token"`
-}
-
-func UserHttpRouter(router *chi.Mux, UseCase user.UseCase) {
-	handler := &NewHttpUserHandler{
-		UserUseCase: UseCase,
-	}
-	r := chi.NewRouter()
-	r.Post("/register", handler.Register)
-	r.Post("/login", handler.SignIn)
-	r.Group(func(r chi.Router) {
-		r.Use(middleware.RefreshTokenVerifier)
-		r.Post("/refresh", handler.Refresh)
-	})
-	r.Group(func(r chi.Router) {
-		r.Use(middleware.AccessTokenVerifier)
-		r.Post("/logout", handler.SignOut)
-	})
-	router.Mount("/auth", r)
 }
 
 func (user *NewHttpUserHandler) Register(w http.ResponseWriter, r *http.Request) {

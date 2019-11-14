@@ -2,36 +2,20 @@ package http
 
 import (
 	"context"
-	"github.com/asaskevich/govalidator"
-	"github.com/go-chi/chi"
 	"go_boilerplate/item"
 	lib "go_boilerplate/lib"
-	"go_boilerplate/middleware"
 	"go_boilerplate/models"
 	"net/http"
 	"strconv"
+
+	"github.com/asaskevich/govalidator"
+	"github.com/go-chi/chi"
 )
 
 var log = lib.GetLogger()
 
 type NewHttpItemHandler struct {
 	ItemUseCase item.UseCase
-}
-
-func ItemHttpRouter(router *chi.Mux, UseCase item.UseCase) {
-	handler := &NewHttpItemHandler{
-		ItemUseCase: UseCase,
-	}
-	r := chi.NewRouter()
-	r.Get("/{id}", handler.GetByID)
-	r.Group(func(r chi.Router) {
-		r.Use(middleware.AccessTokenVerifier)
-		r.Delete("/{id}", handler.Delete)
-		r.Post("/", handler.Store)
-	})
-	r.Get("/", handler.GetAllItem)
-
-	router.Mount("/items", r)
 }
 
 func (i *NewHttpItemHandler) GetAllItem(w http.ResponseWriter, r *http.Request) {

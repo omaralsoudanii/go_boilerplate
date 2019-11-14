@@ -1,95 +1,48 @@
 package main
 
 import (
-	"fmt"
-	"go_boilerplate/config"
-	_itemHttpDelivery "go_boilerplate/item/delivery/http"
-	_itemRepo "go_boilerplate/item/repository"
-	_itemUseCase "go_boilerplate/item/usecase"
+	"go_boilerplate/database"
 	_lib "go_boilerplate/lib"
-	_userHttpDelivery "go_boilerplate/user/delivery/http"
-	_userRepo "go_boilerplate/user/repository"
-	_userUseCase "go_boilerplate/user/usecase"
+	"go_boilerplate/redis"
+	"go_boilerplate/routes"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/Masterminds/squirrel"
 	"github.com/go-chi/chi"
-	"github.com/go-chi/cors"
-	"github.com/go-redis/redis"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
 
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
+	// log
 	log := _lib.GetLogger()
 
 	// db startup
-	v, err := config.ReadConfig("db")
-	if err != nil {
-		log.Fatalf("Error when reading config: %v", err)
-	}
-	db, err := sqlx.Connect("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=%s",
-		v.Get("Username"), v.Get("Password"), v.Get("Host"), v.Get("Port"), v.Get("Database"), v.Get("ParseTime")))
-	if err != nil {
-		log.Fatalf("Failed connecting to the database: %v", err)
-	}
+	db, sb := database.GetInstance(log)
 	defer db.Close()
-	sb := squirrel.StatementBuilder.RunWith(db)
+
 	// redis
-	redisConn := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	_, err = redisConn.Ping().Result()
-	if err != nil {
-		log.Fatalf("Redis connection failed: %v\n", err)
-	}
-	defer redisConn.Close()
-
-	// business logic init
-	timeoutContext := 3000 * time.Second
-	r := chi.NewRouter()
-	// Basic CORS
-	// for more ideas, see: https://developer.github.com/v3/#cross-origin-resource-sharing
-	cors := cors.New(cors.Options{
-		// AllowedOrigins: []string{"https://foo.com"}, // Use this to allow specific origin hosts
-		AllowedOrigins: []string{"*"},
-		// AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
-	})
-	r.Use(cors.Handler)
-
-	// inject domains
-	userRepo := _userRepo.NewUserRepository(sb,db, redisConn)
-	userUse := _userUseCase.NewUserUseCase(userRepo, timeoutContext)
-	_userHttpDelivery.UserHttpRouter(r, userUse)
-	itemRepo := _itemRepo.NewItemRepository(sb, db)
-	ju := _itemUseCase.NewItemUseCase(itemRepo, userRepo, timeoutContext)
-	_itemHttpDelivery.ItemHttpRouter(r, ju)
+	rs := redis.GetInstance(log)
+	defer rs.Close()
+	// init router
+	r := routes.InitRoutes(db, sb, rs)
 
 	//static files
 	workDir, _ := os.Getwd()
 	filesDir := filepath.Join(workDir, "assets")
 	FileServer(r, "/public", http.Dir(filesDir), log)
-	log.Info("App started at port 4000")
+
 	// start server
+	log.Info("App started at port 4000")
 	http.ListenAndServe(":4000", r)
 }
 
 // FileServer conveniently sets up a http.FileServer handler to serve
 // static files from a http.FileSystem.
-func FileServer(r chi.Router, path string, root http.FileSystem, log *logrus.Logger) {
+func FileServer(r *chi.Mux, path string, root http.FileSystem, log *logrus.Logger) {
 	if strings.ContainsAny(path, "{}*") {
 		log.Fatalf("FileServer does not permit URL parameters, path: %v", path)
 	}
