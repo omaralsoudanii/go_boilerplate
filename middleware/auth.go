@@ -5,6 +5,8 @@ import (
 	"go_boilerplate/lib"
 	"go_boilerplate/user"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/dgrijalva/jwt-go"
@@ -32,7 +34,7 @@ func AccessTokenVerifier(next http.Handler) http.Handler {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, err
 			}
-			return []byte("123213123123213"), nil
+			return []byte(os.Getenv("SIGNED_ACCESS_TKN_SECRET")), nil
 		})
 
 		if err != nil {
@@ -44,10 +46,7 @@ func AccessTokenVerifier(next http.Handler) http.Handler {
 			lib.RespondJSON(w, http.StatusForbidden, nil, lib.ErrInvalidTkn)
 			return
 		}
-		userContext := user.ContextData{
-			UserName: tk.UserName,
-		}
-		ctx := context.WithValue(r.Context(), "user", &userContext)
+		ctx := prepareCtx(tk, r)
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 	})
@@ -68,7 +67,7 @@ func RefreshTokenVerifier(next http.Handler) http.Handler {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, err
 			}
-			return []byte("123213123123213RefreshToken"), nil
+			return []byte(os.Getenv("SIGNED_REFRESH_TKN_SECRET")), nil
 		})
 
 		if err != nil {
@@ -80,11 +79,23 @@ func RefreshTokenVerifier(next http.Handler) http.Handler {
 			lib.RespondJSON(w, http.StatusForbidden, nil, lib.ErrInvalidRefreshTkn)
 			return
 		}
-		userContext := user.ContextData{
-			UserName: tk.UserName,
-		}
-		ctx := context.WithValue(r.Context(), "user", &userContext)
+		ctx := prepareCtx(tk, r)
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 	})
+
+}
+
+func prepareCtx(tk *user.Token, r *http.Request) context.Context {
+	ctxUnqKey, _ := strconv.Atoi(os.Getenv("CTX_USER_SESSION_KEY"))
+	key := &user.ContextKey{
+		Key: ctxUnqKey,
+	}
+	sk := os.Getenv("REDIS_SESSION_KEY") + ":" + tk.ID + ":" + tk.UserName + ":" + tk.Email
+	userContext := user.ContextData{
+		UserName:   tk.UserName,
+		SessionKey: sk,
+	}
+	ctx := context.WithValue(r.Context(), key, &userContext)
+	return ctx
 }

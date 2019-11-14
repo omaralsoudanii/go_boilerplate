@@ -3,9 +3,12 @@ package routes
 import (
 	_itemRepo "go_boilerplate/item/repository"
 	_itemUseCase "go_boilerplate/item/usecase"
+	_lib "go_boilerplate/lib"
 	"go_boilerplate/middleware"
 	_userRepo "go_boilerplate/user/repository"
 	_userUseCase "go_boilerplate/user/usecase"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/Masterminds/squirrel"
@@ -15,9 +18,13 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+var log = _lib.GetLogger()
+
 func InitRoutes(db *sqlx.DB, sb squirrel.StatementBuilderType, rs *redis.Client) *chi.Mux {
+	log.Infoln("Setting up routes...")
 	// router init
-	timeoutContext := 3000 * time.Second
+	tc, _ := strconv.Atoi(os.Getenv("APP_CTX_TIMEOUT"))
+	timeoutContext := time.Duration(tc) * time.Second
 	r := chi.NewRouter()
 	// Basic CORS
 	// for more ideas, see: https://developer.github.com/v3/#cross-origin-resource-sharing
@@ -33,10 +40,12 @@ func InitRoutes(db *sqlx.DB, sb squirrel.StatementBuilderType, rs *redis.Client)
 	})
 
 	// apply middlewares
+	log.Infoln("Applying HTTP middlewares...")
 	r.Use(middleware.RequestLogger)
 	r.Use(cors.Handler)
 
 	// inject domains with their dependencies and setup their routes
+	log.Infoln("Injecting services dependencies and setting up their routes...")
 	// user routes
 	userRepo := _userRepo.NewUserRepository(sb, db, rs)
 	userUse := _userUseCase.NewUserUseCase(userRepo, timeoutContext)

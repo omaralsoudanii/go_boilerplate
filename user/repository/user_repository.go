@@ -70,7 +70,7 @@ func (repo *userRepository) GetByID(ctx context.Context, id uint) (*models.User,
 	return userModel, nil
 }
 
-func (repo *userRepository) StoreSession(ctx context.Context, user *models.User, token string) error {
+func (repo *userRepository) StoreSession(ctx context.Context, user *models.User, key string, token string) error {
 	userMap := map[string]interface{}{
 		"id":           user.ID,
 		"username":     user.UserName,
@@ -82,10 +82,9 @@ func (repo *userRepository) StoreSession(ctx context.Context, user *models.User,
 		"gender":       user.Gender.String,
 		"refreshToken": token,
 	}
-	redisKey := "user:" + user.UserName
 
 	// create/set user in redis
-	err := repo.RedisConn.HMSet(redisKey, userMap).Err()
+	err := repo.RedisConn.HMSet(key, userMap).Err()
 	if err != nil {
 		return err
 	}
@@ -97,8 +96,7 @@ func (repo *userRepository) DeleteSession(key string) error {
 	return err
 }
 
-func (repo *userRepository) GetUser(username string) (map[string]string, error) {
-	key := "user:" + username
+func (repo *userRepository) GetUser(key string) (map[string]string, error) {
 	data := make(map[string]string)
 	data, err := repo.RedisConn.HGetAll(key).Result()
 	if err != nil {

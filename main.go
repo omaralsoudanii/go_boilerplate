@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi"
 	_ "github.com/go-sql-driver/mysql"
@@ -39,8 +41,18 @@ func main() {
 	FileServer(r, "/public", http.Dir(filesDir), log)
 
 	// start server
-	log.Infoln("App started at port 4000")
-	http.ListenAndServe(":4000", r)
+	log.Infoln("Starting server and binding it with the main router...")
+	wt, _ := strconv.Atoi(os.Getenv("SRV_WRITE_TIMEOUT"))
+	rt, _ := strconv.Atoi(os.Getenv("SRV_READ_TIMEOUT"))
+	addr := os.Getenv("APP_HOST") + ":" + os.Getenv("APP_PORT")
+	srv := &http.Server{
+		Handler:      r,
+		Addr:         addr,
+		WriteTimeout: time.Duration(wt) * time.Second,
+		ReadTimeout:  time.Duration(rt) * time.Second,
+	}
+	log.Infoln("Server started at: " + addr)
+	srv.ListenAndServe()
 }
 
 // FileServer conveniently sets up a http.FileServer handler to serve
