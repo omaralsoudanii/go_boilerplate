@@ -43,15 +43,17 @@ func (user *NewHttpUserHandler) Register(w http.ResponseWriter, r *http.Request)
 		ctx = context.Background()
 	}
 
-	err := user.UserUseCase.Register(ctx, &userRow)
+	id, err := user.UserUseCase.Register(ctx, &userRow)
 
 	if err != nil {
 		log.Errorln(err)
 		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
 		return
 	}
-
-	lib.RespondJSON(w, http.StatusCreated, userRow, nil)
+	data := map[string]interface{}{
+		"id": id,
+	}
+	lib.RespondJSON(w, http.StatusCreated, data, nil)
 }
 
 func (user *NewHttpUserHandler) SignIn(w http.ResponseWriter, r *http.Request) {

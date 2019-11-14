@@ -23,16 +23,19 @@ func NewUserRepository(sb squirrel.StatementBuilderType, db *sqlx.DB, r *redis.C
 	return &userRepository{sb, db, r}
 }
 
-func (repo *userRepository) Insert(ctx context.Context, user *models.User) error {
-
+func (repo *userRepository) Insert(ctx context.Context, user *models.User) (uint, error) {
 	q := repo.sb.Insert("user").
 		Columns("first_name", "last_name", "username", "email", "password", "created_at").
 		Values(user.FirstName, user.LastName, user.UserName, user.Email, user.Password, time.Now())
-	_, err := q.ExecContext(ctx)
+	res, err := q.ExecContext(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return uint(id), nil
 }
 
 func (repo *userRepository) GetByName(ctx context.Context, username string) (*models.User, error) {
