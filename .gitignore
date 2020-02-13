@@ -20,5 +20,5 @@ Gopkg.lock
 Gopkg.toml
 /public/
 
-# env files
-/env/
+# env file
+.env

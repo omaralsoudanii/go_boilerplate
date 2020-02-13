@@ -1,6 +1,10 @@
 package main
 
 import (
+	"github.com/go-chi/chi"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
+	"github.com/sirupsen/logrus"
 	"go_boilerplate/database"
 	_lib "go_boilerplate/lib"
 	"go_boilerplate/redis"
@@ -11,11 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/go-chi/chi"
-	_ "github.com/go-sql-driver/mysql"
-
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -23,15 +22,31 @@ func main() {
 	log := _lib.GetLogger()
 
 	// set envs
-	_lib.GetENV()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading your .env file, make sure you create it in the project root.\n error: %v", err)
+	}
 
 	// db startup
 	db, sb := database.GetInstance(log)
-	defer db.Close()
+	defer func() {
+		if err = db.Close(); err != nil {
+			log.Fatalf("Error closing database connection gracefully.\n error: %v", err)
+		} else {
+			log.Infoln("Database connection gracefully closed.")
+		}
+	}()
 
 	// redis
 	rs := redis.GetInstance(log)
-	defer rs.Close()
+	defer func() {
+		if err = rs.Close(); err != nil {
+			log.Fatalf("Error closing redis connection gracefully.\n error: %v", err)
+		} else {
+			log.Infoln("Redis connection gracefully closed.")
+		}
+	}()
+
 	// init router
 	r := routes.InitRoutes(db, sb, rs)
 
@@ -51,8 +66,16 @@ func main() {
 		WriteTimeout: time.Duration(wt) * time.Second,
 		ReadTimeout:  time.Duration(rt) * time.Second,
 	}
+	defer func() {
+		if err = srv.Close(); err != nil {
+			log.Fatalf("Error closing server gracefully.\n error: %v", err)
+		}
+	}()
 	log.Infoln("Server started at: " + addr)
-	srv.ListenAndServe()
+	err = srv.ListenAndServe()
+	if err != nil {
+		log.Infoln("Server started.")
+	}
 }
 
 // FileServer conveniently sets up a http.FileServer handler to serve

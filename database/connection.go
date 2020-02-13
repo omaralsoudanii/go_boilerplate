@@ -2,11 +2,10 @@ package database
 
 import (
 	"fmt"
-	"os"
-
 	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
+	"os"
 )
 
 func GetInstance(log *logrus.Logger) (*sqlx.DB, squirrel.StatementBuilderType) {
