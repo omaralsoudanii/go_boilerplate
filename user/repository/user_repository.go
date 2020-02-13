@@ -2,78 +2,77 @@ package repository
 
 import (
 	"context"
+	"github.com/go-redis/redis"
+	"github.com/jmoiron/sqlx"
+	_lib "go_boilerplate/lib"
 	"go_boilerplate/models"
 	"go_boilerplate/user"
 	"time"
-
-	"github.com/Masterminds/squirrel"
-	"github.com/jmoiron/sqlx"
-
-	"github.com/go-redis/redis"
 )
 
 type userRepository struct {
-	sb        squirrel.StatementBuilderType
-	db        *sqlx.DB
+	Conn      *sqlx.DB
 	RedisConn *redis.Client
 }
 
-func NewUserRepository(sb squirrel.StatementBuilderType, db *sqlx.DB, r *redis.Client) user.Repository {
+func NewUserRepository(Conn *sqlx.DB, r *redis.Client) user.Repository {
 
-	return &userRepository{sb, db, r}
+	return &userRepository{Conn, r}
 }
 
 func (repo *userRepository) Insert(ctx context.Context, user *models.User) (*models.User, error) {
-	q, args, err := repo.sb.Insert("user").
-		Columns("first_name", "last_name", "username", "email", "password", "created_at").
-		Values(user.FirstName, user.LastName, user.UserName, user.Email, user.Password, time.Now()).ToSql()
-	row, err := repo.db.QueryxContext(ctx, q, args)
+	tx, err := repo.Conn.BeginTxx(ctx, nil)
 	if err != nil {
-		return nil, err
+		_ = tx.Rollback()
+		return nil, _lib.ErrInternalServerError
 	}
-	err = row.StructScan(&user)
+
+	result, err := tx.ExecContext(ctx, "INSERT INTO user ( first_name, last_name , username , email , password , created_at) "+
+		"VALUES (?, ?, ?, ?, ?, ?)",
+		user.FirstName, user.LastName, user.UserName, user.Email, user.Password, time.Now())
 	if err != nil {
-		return nil, err
+		_ = tx.Rollback()
+		return nil, _lib.ErrInternalServerError
 	}
-	return user, nil
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, _lib.ErrInternalServerError
+	}
+
+	u, err := repo.GetByID(ctx, uint(id))
+	if err != nil {
+		return nil, _lib.ErrInternalServerError
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, _lib.ErrInternalServerError
+	}
+	return u, nil
 }
 
 func (repo *userRepository) GetByName(ctx context.Context, username string) (*models.User, error) {
-	q, args, err := repo.sb.Select("*").
-		From("user").
-		Where("username = ?", username).
-		ToSql()
-
-	if err != nil {
-		return nil, err
-	}
+	query := `SELECT * from user where username = ?`
 	userModel := &models.User{}
-	err = repo.db.GetContext(ctx, userModel, q, args...)
+	err := repo.Conn.GetContext(ctx, userModel, query, username)
 	if err != nil {
-		return nil, err
+		return nil, _lib.ErrNotFound
 	}
 	return userModel, nil
 }
 
 func (repo *userRepository) GetByID(ctx context.Context, id uint) (*models.User, error) {
-	q, args, err := repo.sb.Select("*").
-		From("user").
-		Where(squirrel.Eq{"id": id}).
-		ToSql()
-
-	if err != nil {
-		return nil, err
-	}
-
+	query := `SELECT * from user where id = ?`
 	userModel := &models.User{}
-	err = repo.db.GetContext(ctx, userModel, q, args)
+	err := repo.Conn.GetContext(ctx, userModel, query, id)
 	if err != nil {
-		return nil, err
+		return nil, _lib.ErrNotFound
 	}
 	return userModel, nil
 }
 
-func (repo *userRepository) StoreSession(ctx context.Context, user *models.User, key string, token string) error {
+func (repo *userRepository) StoreSession(user *models.User, key string, token string) error {
 	userMap := map[string]interface{}{
 		"id":           user.ID,
 		"username":     user.UserName,

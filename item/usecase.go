@@ -8,10 +8,10 @@ import (
 
 // UseCase represent the item usecases
 type UseCase interface {
-	GetAll(ctx context.Context, num uint) ([]*models.Item, error)
-	GetByID(ctx context.Context, id uint) (*models.Item, error)
+	GetAll(ctx context.Context, num uint) ([]ItemMapper, error)
+	GetByID(ctx context.Context, id uint) (*ItemMapper, error)
+	GetByTitle(ctx context.Context, title string) (*ItemMapper, error)
 	Update(ctx context.Context, item *models.Item) error
-	GetByTitle(ctx context.Context, title string) (*models.Item, error)
-	Store(ctx context.Context, item *models.Item, images []File) (uint, error)
+	Store(ctx context.Context, item *models.Item, images []File) (int64, error)
 	Delete(ctx context.Context, id uint) error
 }

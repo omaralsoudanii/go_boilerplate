@@ -2,13 +2,12 @@ package database
 
 import (
 	"fmt"
-	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 	"os"
 )
 
-func GetInstance(log *logrus.Logger) (*sqlx.DB, squirrel.StatementBuilderType) {
+func GetInstance(log *logrus.Logger) *sqlx.DB {
 	log.Infoln("Connecting to MySQL...")
 	addr := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=%s",
 		os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_HOST"),
@@ -20,7 +19,6 @@ func GetInstance(log *logrus.Logger) (*sqlx.DB, squirrel.StatementBuilderType) {
 		log.Fatalf("Failed connecting to the database: %v", err)
 	}
 
-	sb := squirrel.StatementBuilder.RunWith(db)
 	log.Infoln("MySQL started at: " + addr)
-	return db, sb
+	return db
 }

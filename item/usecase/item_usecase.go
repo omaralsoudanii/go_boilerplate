@@ -26,7 +26,7 @@ func NewItemUseCase(i item.Repository, u user.Repository, timeout time.Duration)
 	}
 }
 
-func (i *itemUseCase) GetAll(c context.Context, num uint) ([]*models.Item, error) {
+func (i *itemUseCase) GetAll(c context.Context, num uint) ([]item.ItemMapper, error) {
 
 	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
 	defer cancel()
@@ -38,7 +38,7 @@ func (i *itemUseCase) GetAll(c context.Context, num uint) ([]*models.Item, error
 	return listItems, nil
 }
 
-func (i *itemUseCase) GetByID(c context.Context, id uint) (*models.Item, error) {
+func (i *itemUseCase) GetByID(c context.Context, id uint) (*item.ItemMapper, error) {
 
 	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
 	defer cancel()
@@ -50,15 +50,7 @@ func (i *itemUseCase) GetByID(c context.Context, id uint) (*models.Item, error) 
 	return res, nil
 }
 
-func (i *itemUseCase) Update(c context.Context, item *models.Item) error {
-
-	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
-	defer cancel()
-
-	return i.itemRepo.Update(ctx, item)
-}
-
-func (i *itemUseCase) GetByTitle(c context.Context, GetByTitle string) (*models.Item, error) {
+func (i *itemUseCase) GetByTitle(c context.Context, GetByTitle string) (*item.ItemMapper, error) {
 
 	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
 	defer cancel()
@@ -70,7 +62,28 @@ func (i *itemUseCase) GetByTitle(c context.Context, GetByTitle string) (*models.
 	return res, nil
 }
 
-func (i *itemUseCase) Store(c context.Context, item *models.Item, images []item.File) (uint, error) {
+func (i *itemUseCase) Update(c context.Context, item *models.Item) error {
+
+	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
+	defer cancel()
+	userContext, ok := c.Value("user").(*user.ContextData)
+	if !ok {
+		return errors.New("context_retrieve_user_err")
+	}
+	u, err := i.userRepo.GetUser(userContext.UserName)
+	if err != nil {
+		return err
+	}
+
+	UserID, err := strconv.Atoi(u["id"])
+	if err != nil {
+		return err
+	}
+	item.UserID = UserID
+	return i.itemRepo.Update(ctx, item)
+}
+
+func (i *itemUseCase) Store(c context.Context, item *models.Item, images []item.File) (int64, error) {
 
 	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
 	defer cancel()
@@ -78,12 +91,12 @@ func (i *itemUseCase) Store(c context.Context, item *models.Item, images []item.
 	if !ok {
 		return 0, errors.New("context_retrieve_user_err")
 	}
-	user, err := i.userRepo.GetUser(userContext.UserName)
+	u, err := i.userRepo.GetUser(userContext.UserName)
 	if err != nil {
 		return 0, err
 	}
 
-	UserID, err := strconv.Atoi(user["id"])
+	UserID, err := strconv.Atoi(u["id"])
 	if err != nil {
 		return 0, err
 	}
@@ -107,12 +120,5 @@ func (i *itemUseCase) Store(c context.Context, item *models.Item, images []item.
 func (i *itemUseCase) Delete(c context.Context, id uint) error {
 	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
 	defer cancel()
-	//jobExist, err := j.jobRepo.GetByID(ctx, id)
-	//if err != nil {
-	//	return err
-	//}
-	//if jobExist == nil {
-	//	return models.ErrNotFound
-	//}
 	return i.itemRepo.Delete(ctx, id)
 }

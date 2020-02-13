@@ -3,15 +3,14 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"go_boilerplate/lib"
 	"go_boilerplate/models"
 	"go_boilerplate/user"
+	"golang.org/x/crypto/bcrypt"
 	"os"
 	"strconv"
 	"time"
-
-	"github.com/dgrijalva/jwt-go"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type userUseCase struct {
@@ -27,26 +26,42 @@ func NewUserUseCase(u user.Repository, timeout time.Duration) user.UseCase {
 	}
 }
 
-func (u *userUseCase) Register(c context.Context, user *models.User) (*models.User, error) {
+func (u *userUseCase) Register(ctx context.Context, user *models.User) (*models.User, string, string, error) {
 
-	ctx, cancel := context.WithTimeout(c, u.contextTimeout)
+	ctx, cancel := context.WithTimeout(ctx, u.contextTimeout)
 	defer cancel()
 	// Salt and hash the password using the bcrypt algorithm
 	// The second argument is the cost of hashing, which we arbitrarily set as 8 (this value can be more or less, depending on the computing power you wish to utilize)
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	user.Password = string(hashedPassword)
 	if err != nil {
-		return nil, err
+		return nil, "", "", err
 	}
-	id, err := u.userRepo.Insert(ctx, user)
+	record, err := u.userRepo.Insert(ctx, user)
 	if err != nil {
-		return nil, err
+		return nil, "", "", err
 	}
-	return id, nil
+	accessTokenString, err := generateAccessToken(record)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	refreshTokenString, err := generateRefreshToken(record)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	sk := os.Getenv("REDIS_SESSION_KEY") + ":" + string(record.ID) + ":" + record.UserName + ":" + record.Email
+
+	err = u.userRepo.StoreSession(record, sk, refreshTokenString)
+	if err != nil {
+		return nil, "", "", err
+	}
+	return record, accessTokenString, refreshTokenString, nil
 }
 
-func (u *userUseCase) SignIn(c context.Context, data *models.User) (string, string, error) {
-	ctx, cancel := context.WithTimeout(c, u.contextTimeout)
+func (u *userUseCase) SignIn(ctx context.Context, data *models.User) (string, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, u.contextTimeout)
 	defer cancel()
 
 	// get password from user repo to validate against sent one
@@ -71,15 +86,15 @@ func (u *userUseCase) SignIn(c context.Context, data *models.User) (string, stri
 	// TODO:: save both access_token and refresh_token in redis to detect token leaks on refreshing the access_token
 	sk := os.Getenv("REDIS_SESSION_KEY") + ":" + string(userModel.ID) + ":" + userModel.UserName + ":" + userModel.Email
 
-	err = u.userRepo.StoreSession(ctx, userModel, sk, refreshTokenString)
+	err = u.userRepo.StoreSession(userModel, sk, refreshTokenString)
 	if err != nil {
 		return "", "", err
 	}
 	return accessTokenString, refreshTokenString, nil
 }
 
-func (u *userUseCase) SignOut(c context.Context) error {
-	sk, err := getCtxSessionKey(c)
+func (u *userUseCase) SignOut(ctx context.Context) error {
+	sk, err := getCtxSessionKey(ctx)
 	if err != nil {
 		return err
 	}
@@ -91,8 +106,8 @@ func (u *userUseCase) SignOut(c context.Context) error {
 	return err
 }
 
-func (u *userUseCase) Refresh(c context.Context, refreshToken string) (string, error) {
-	sk, err := getCtxSessionKey(c)
+func (u *userUseCase) Refresh(ctx context.Context, refreshToken string) (string, error) {
+	sk, err := getCtxSessionKey(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -157,12 +172,12 @@ func generateAccessToken(userModel *models.User) (string, error) {
 	return tokenString, nil
 }
 
-func getCtxSessionKey(c context.Context) (string, error) {
+func getCtxSessionKey(ctx context.Context) (string, error) {
 	ctxUnqKey, _ := strconv.Atoi(os.Getenv("CTX_USER_SESSION_KEY"))
 	key := &user.ContextKey{
 		Key: ctxUnqKey,
 	}
-	userContext, ok := c.Value(key).(*user.ContextData)
+	userContext, ok := ctx.Value(key).(*user.ContextData)
 	if !ok {
 		return "", lib.ErrInternalServerError
 	}

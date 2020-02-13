@@ -28,7 +28,7 @@ func main() {
 	}
 
 	// db startup
-	db, sb := database.GetInstance(log)
+	db := database.GetInstance(log)
 	defer func() {
 		if err = db.Close(); err != nil {
 			log.Fatalf("Error closing database connection gracefully.\n error: %v", err)
@@ -48,7 +48,7 @@ func main() {
 	}()
 
 	// init router
-	r := routes.InitRoutes(db, sb, rs)
+	r := routes.InitRoutes(db, rs)
 
 	//static files
 	workDir, _ := os.Getwd()

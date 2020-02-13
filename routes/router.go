@@ -1,6 +1,10 @@
 package routes
 
 import (
+	"github.com/go-chi/chi"
+	"github.com/go-chi/cors"
+	"github.com/go-redis/redis"
+	"github.com/jmoiron/sqlx"
 	_itemRepo "go_boilerplate/item/repository"
 	_itemUseCase "go_boilerplate/item/usecase"
 	_lib "go_boilerplate/lib"
@@ -10,17 +14,11 @@ import (
 	"os"
 	"strconv"
 	"time"
-
-	"github.com/Masterminds/squirrel"
-	"github.com/go-chi/chi"
-	"github.com/go-chi/cors"
-	"github.com/go-redis/redis"
-	"github.com/jmoiron/sqlx"
 )
 
 var log = _lib.GetLogger()
 
-func InitRoutes(db *sqlx.DB, sb squirrel.StatementBuilderType, rs *redis.Client) *chi.Mux {
+func InitRoutes(db *sqlx.DB, rs *redis.Client) *chi.Mux {
 	log.Infoln("Setting up routes...")
 	// router init
 	tc, _ := strconv.Atoi(os.Getenv("APP_CTX_TIMEOUT"))
@@ -28,7 +26,7 @@ func InitRoutes(db *sqlx.DB, sb squirrel.StatementBuilderType, rs *redis.Client)
 	r := chi.NewRouter()
 	// Basic CORS
 	// for more ideas, see: https://developer.github.com/v3/#cross-origin-resource-sharing
-	cors := cors.New(cors.Options{
+	corsOpts := cors.New(cors.Options{
 		// AllowedOrigins: []string{"https://foo.com"}, // Use this to allow specific origin hosts
 		AllowedOrigins: []string{"*"},
 		// AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
@@ -42,17 +40,17 @@ func InitRoutes(db *sqlx.DB, sb squirrel.StatementBuilderType, rs *redis.Client)
 	// apply middlewares
 	log.Infoln("Applying HTTP middlewares...")
 	r.Use(middleware.RequestLogger)
-	r.Use(cors.Handler)
+	r.Use(corsOpts.Handler)
 
 	// inject domains with their dependencies and setup their routes
 	log.Infoln("Injecting services dependencies and setting up their routes...")
 	// user routes
-	userRepo := _userRepo.NewUserRepository(sb, db, rs)
+	userRepo := _userRepo.NewUserRepository(db, rs)
 	userUse := _userUseCase.NewUserUseCase(userRepo, timeoutContext)
 	UserHttpRouter(r, userUse)
 
 	// item routes
-	itemRepo := _itemRepo.NewItemRepository(sb, db)
+	itemRepo := _itemRepo.NewItemRepository(db)
 	ju := _itemUseCase.NewItemUseCase(itemRepo, userRepo, timeoutContext)
 	ItemHttpRouter(r, ju)
 	return r

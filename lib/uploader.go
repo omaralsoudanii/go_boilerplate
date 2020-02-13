@@ -34,8 +34,8 @@ func UploadFile(c context.Context, file item.File, location string) (string, err
 		return "", ErrBadParamInput
 	}
 	fileNames := strings.Split(file.Header.Filename, ".")
-	uuid := uuid.NewV4()
-	input := strings.NewReader(fileNames[0] + userContext.UserName + uuid.String())
+	fileUUID := uuid.NewV4()
+	input := strings.NewReader(fileNames[0] + userContext.UserName + fileUUID.String())
 	hash := sha256.New()
 	if _, err := io.Copy(hash, input); err != nil {
 		log.Fatal(err)

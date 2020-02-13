@@ -14,11 +14,11 @@ type HttpMessage struct {
 
 // RespondJSON makes the response with payload as json format
 func RespondJSON(w http.ResponseWriter, status int, payload interface{}, errMsg error) {
-	error := ""
+	errorMessage := ""
 	if errMsg != nil {
-		error = errMsg.Error()
+		errorMessage = errMsg.Error()
 	}
-	response, err := json.Marshal(HttpMessage{Data: payload, Error: error})
+	response, err := json.Marshal(HttpMessage{Data: payload, Error: errorMessage})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(ErrInternalServerError.Error()))

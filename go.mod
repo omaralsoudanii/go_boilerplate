@@ -3,7 +3,6 @@ module go_boilerplate
 go 1.13
 
 require (
-	github.com/Masterminds/squirrel v1.2.0
 	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-chi/chi v4.0.3+incompatible

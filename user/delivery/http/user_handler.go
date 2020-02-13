@@ -2,12 +2,11 @@ package http
 
 import (
 	"context"
+	"github.com/asaskevich/govalidator"
 	"go_boilerplate/lib"
 	"go_boilerplate/models"
 	"go_boilerplate/user"
 	"net/http"
-
-	"github.com/asaskevich/govalidator"
 )
 
 var log = lib.GetLogger()
@@ -15,6 +14,12 @@ var log = lib.GetLogger()
 type NewHttpUserHandler struct {
 	UserUseCase user.UseCase
 }
+
+type newUserPayLoad struct {
+	Tokens tokenPayload
+	User *models.User
+}
+
 type tokenPayload struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -43,13 +48,21 @@ func (user *NewHttpUserHandler) Register(w http.ResponseWriter, r *http.Request)
 		ctx = context.Background()
 	}
 
-	res, err := user.UserUseCase.Register(ctx, &userRow)
+	u, accessToken, refreshToken, err := user.UserUseCase.Register(ctx, &userRow)
 
 	if err != nil {
 		log.Errorln(err)
 		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
 		return
 	}
+	res := newUserPayLoad{
+		Tokens:tokenPayload{
+			AccessToken: accessToken,
+			RefreshToken: refreshToken,
+		},
+		User:u,
+	}
+
 	lib.RespondJSON(w, http.StatusCreated, res, nil)
 }
 

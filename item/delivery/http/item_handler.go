@@ -3,7 +3,7 @@ package http
 import (
 	"context"
 	"go_boilerplate/item"
-	lib "go_boilerplate/lib"
+	_lib "go_boilerplate/lib"
 	"go_boilerplate/models"
 	"net/http"
 	"strconv"
@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi"
 )
 
-var log = lib.GetLogger()
+var log = _lib.GetLogger()
 
 type NewHttpItemHandler struct {
 	ItemUseCase item.UseCase
@@ -28,10 +28,10 @@ func (i *NewHttpItemHandler) GetAllItem(w http.ResponseWriter, r *http.Request) 
 	listItems, err := i.ItemUseCase.GetAll(ctx, uint(num))
 	if err != nil {
 		log.Errorln(err)
-		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
+		_lib.RespondJSON(w, _lib.GetStatusCode(err), nil, err)
 		return
 	}
-	lib.RespondJSON(w, http.StatusOK, listItems, nil)
+	_lib.RespondJSON(w, http.StatusOK, listItems, nil)
 }
 
 func (i *NewHttpItemHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -48,10 +48,10 @@ func (i *NewHttpItemHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Errorln(err)
-		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
+		_lib.RespondJSON(w, _lib.GetStatusCode(err), nil, err)
 		return
 	}
-	lib.RespondJSON(w, http.StatusOK, itemRow, nil)
+	_lib.RespondJSON(w, http.StatusOK, itemRow, nil)
 }
 
 func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +65,7 @@ func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
 		log.Errorln(err)
-		lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, lib.ErrBadParamInput)
+		_lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, _lib.ErrBadParamInput)
 		return
 	}
 	itemRow.Title = r.FormValue("title")
@@ -76,12 +76,12 @@ func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
 	itemRow.CategoryID = CategoryID
 
 	files := r.MultipartForm.File["images"]
-	images := []item.File{}
+	var images []item.File
 	for _, fh := range files {
 		f, err := fh.Open()
 		if err != nil {
 			log.Errorln(err)
-			lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, lib.ErrBadParamInput)
+			_lib.RespondJSON(w, http.StatusUnprocessableEntity, nil, _lib.ErrBadParamInput)
 			return
 		}
 		images = append(images, item.File{
@@ -91,7 +91,7 @@ func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
 	}
 	if ok, err := govalidator.ValidateStruct(&itemRow); !ok {
 		log.Warning(err)
-		lib.RespondJSON(w, http.StatusBadRequest, nil, err)
+		_lib.RespondJSON(w, http.StatusBadRequest, nil, err)
 		return
 	}
 
@@ -99,11 +99,11 @@ func (i *NewHttpItemHandler) Store(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Errorln(err)
-		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
+		_lib.RespondJSON(w, _lib.GetStatusCode(err), nil, err)
 		return
 	}
-	itemRow.ID = id
-	lib.RespondJSON(w, http.StatusCreated, itemRow, nil)
+	itemRow.ID = uint(id)
+	_lib.RespondJSON(w, http.StatusCreated, itemRow, nil)
 }
 
 func (i *NewHttpItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -117,8 +117,8 @@ func (i *NewHttpItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = i.ItemUseCase.Delete(ctx, id)
 
 	if err != nil {
-		lib.RespondJSON(w, lib.GetStatusCode(err), nil, err)
+		_lib.RespondJSON(w, _lib.GetStatusCode(err), nil, err)
 		return
 	}
-	lib.RespondJSON(w, http.StatusNoContent, nil, nil)
+	_lib.RespondJSON(w, http.StatusNoContent, nil, nil)
 }
