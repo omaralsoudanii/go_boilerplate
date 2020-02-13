@@ -27,7 +27,7 @@ func NewUserUseCase(u user.Repository, timeout time.Duration) user.UseCase {
 	}
 }
 
-func (u *userUseCase) Register(c context.Context, user *models.User) (uint, error) {
+func (u *userUseCase) Register(c context.Context, user *models.User) (*models.User, error) {
 
 	ctx, cancel := context.WithTimeout(c, u.contextTimeout)
 	defer cancel()
@@ -36,11 +36,11 @@ func (u *userUseCase) Register(c context.Context, user *models.User) (uint, erro
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	user.Password = string(hashedPassword)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	id, err := u.userRepo.Insert(ctx, user)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	return id, nil
 }

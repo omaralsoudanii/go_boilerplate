@@ -23,19 +23,19 @@ func NewUserRepository(sb squirrel.StatementBuilderType, db *sqlx.DB, r *redis.C
 	return &userRepository{sb, db, r}
 }
 
-func (repo *userRepository) Insert(ctx context.Context, user *models.User) (uint, error) {
-	q := repo.sb.Insert("user").
+func (repo *userRepository) Insert(ctx context.Context, user *models.User) (*models.User, error) {
+	q, args, err := repo.sb.Insert("user").
 		Columns("first_name", "last_name", "username", "email", "password", "created_at").
-		Values(user.FirstName, user.LastName, user.UserName, user.Email, user.Password, time.Now())
-	res, err := q.ExecContext(ctx)
+		Values(user.FirstName, user.LastName, user.UserName, user.Email, user.Password, time.Now()).ToSql()
+	row, err := repo.db.QueryxContext(ctx, q, args)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	id, err := res.LastInsertId()
+	err = row.StructScan(&user)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return uint(id), nil
+	return user, nil
 }
 
 func (repo *userRepository) GetByName(ctx context.Context, username string) (*models.User, error) {
@@ -78,11 +78,11 @@ func (repo *userRepository) StoreSession(ctx context.Context, user *models.User,
 		"id":           user.ID,
 		"username":     user.UserName,
 		"email":        user.Email,
-		"avatar":       user.Avatar.String,
-		"birth_date":   user.BirthDate.Time,
+		"avatar":       user.Avatar,
+		"birth_date":   user.BirthDate,
 		"first_name":   user.FirstName,
 		"last_name":    user.LastName,
-		"gender":       user.Gender.String,
+		"gender":       user.Gender,
 		"refreshToken": token,
 	}
 
