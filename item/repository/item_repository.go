@@ -20,7 +20,7 @@ func NewItemRepository(Conn *sqlx.DB) item.Repository {
 }
 
 var selectQuery = `SELECT item.id, item.hash, item.title, item.description, item.price,
-						category.title as category_title, category.id as category_id,
+						category.title, category.id,
 						item_images.id, item_images.hash, item_images.type, item_images.size,
 						user.id, user.username, user.email,
 						item.created_at,item.updated_at
@@ -35,31 +35,43 @@ var selectQuery = `SELECT item.id, item.hash, item.title, item.description, item
 						ON
 						item.id = item_images.item_id
 						JOIN
-						USER
+						user
 						ON
-						item.user_id = USER.id`
+						item.user_id = user.id`
 
-func (repo itemRepository) fetch(ctx context.Context, query string, args ...interface{}) (data []item.ItemMapper, err error) {
+func (repo itemRepository) fetch(ctx context.Context, query string, args ...interface{}) (data []*item.ItemMapper, err error) {
 	rows, err := repo.Conn.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
-	model := item.ItemMapper{}
-	result := make([]item.ItemMapper, 0)
+	records := make(map[uint]*item.ItemMapper, 0)
+	images := make(map[uint][]*models.ItemImages, 0)
 	for rows.Next() {
+		model := new(item.ItemScanner)
 		err := rows.StructScan(&model)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, model)
+		images[model.Item.ID] = append(images[model.Item.ID], model.ItemImages)
+		data := item.ItemMapper{
+			Item:       model.Item,
+			Category:   model.Category,
+			User:       model.User,
+			ItemImages: images[model.Item.ID],
+		}
+		records[model.Item.ID] = &data
 	}
-
+	result := make([]*item.ItemMapper, 0)
+	for _, r := range records {
+		result = append(result, r)
+	}
 	return result, nil
 }
 
-func (repo *itemRepository) GetAll(ctx context.Context, num uint) ([]item.ItemMapper, error) {
-	query := selectQuery + " ORDER BY title LIMIT 10 OFFSET ? "
+func (repo *itemRepository) GetAll(ctx context.Context, num uint) ([]*item.ItemMapper, error) {
+	query := selectQuery + " ORDER BY item.title LIMIT 10 OFFSET ? "
 	res, err := repo.fetch(ctx, query, num)
+	fmt.Print(err)
 	if err != nil {
 		return nil, _lib.ErrInternalServerError
 	}

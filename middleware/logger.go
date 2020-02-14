@@ -53,7 +53,7 @@ func RequestLogger(next http.Handler) http.Handler {
 		} else {
 			ip := getIPAdress(r)
 			log.Infof("[Request] - %v\n"+
-				"IP-Address: %v", string(dump), ip)
+				"IP-Address: %v", strings.TrimSpace(string(dump)), ip)
 		}
 
 		next.ServeHTTP(w, r)

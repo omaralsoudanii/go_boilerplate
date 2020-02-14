@@ -26,7 +26,7 @@ func NewItemUseCase(i item.Repository, u user.Repository, timeout time.Duration)
 	}
 }
 
-func (i *itemUseCase) GetAll(c context.Context, num uint) ([]item.ItemMapper, error) {
+func (i *itemUseCase) GetAll(c context.Context, num uint) ([]*item.ItemMapper, error) {
 
 	ctx, cancel := context.WithTimeout(c, i.contextTimeout)
 	defer cancel()

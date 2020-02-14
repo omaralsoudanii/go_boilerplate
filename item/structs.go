@@ -11,8 +11,15 @@ type File struct {
 }
 
 type ItemMapper struct {
-	Item models.Item
-	Category models.Category
-	User models.User
-	ItemImages []models.ItemImages
+	Item *models.Item `db:"item"`
+	Category *models.Category `db:"category"`
+	User *models.User `db:"user"`
+	ItemImages []*models.ItemImages `db:"item_images"`
+}
+
+type ItemScanner struct {
+	Item *models.Item `db:"item"`
+	Category *models.Category `db:"category"`
+	User *models.User `db:"user"`
+	ItemImages *models.ItemImages `db:"item_images"`
 }
