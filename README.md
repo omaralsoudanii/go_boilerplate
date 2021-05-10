@@ -1,3 +1,7 @@
+# Golang boilerplate
+
+This project is outdated now and archived
+
 ### Stack :
 
 - Golang (Tested on v1.13.4) with go modules
